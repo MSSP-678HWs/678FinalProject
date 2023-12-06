@@ -2,6 +2,7 @@ library(readxl)
 library(tseries)
 library(ggplot2)
 library(tidyverse)
+library(reshape2)
 
 #Trying to find autoregression lag of brent crude oil prices
 
@@ -58,4 +59,38 @@ ftse$Price<- as.numeric(str_replace(ftse$Price, ",",""))
 
 pacf(ftse$Price, lag=10, pl=TRUE)
 
+#Positive signs here. 
 
+
+#So let's shelve the autoregressive stuff for the time being and have a wee look at correlations
+
+#Reading in the auction data:
+eu_ets_data<-read_excel("EU-ETS-data.xlsx")
+
+#removing na's and selecting the right columns
+eu_ets_variable_cor<- eu_ets_data |> select(`Auction Price €/tCO2`,
+              `Auction Volume tCO2`:`Average volume bid per bidder`,
+              `Total Number of Bidders`) |> filter(
+                is.na(`Auction Price €/tCO2`)==FALSE
+              )
+
+cor_matrix<- cor(eu_ets_variable_cor)
+
+# Get upper triangle of the correlation matrix
+get_upper_tri <- function(cormat){
+  cormat[lower.tri(cormat)]<- NA
+  return(cormat)
+}
+
+upper_tri <- get_upper_tri(cor_matrix)
+melted_cormat <- melt(upper_tri, na.rm = TRUE)
+
+ggplot(data = melted_cormat, aes(Var2, Var1, fill = value))+
+  geom_tile(color = "white")+
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1,1), space = "Lab", 
+                       name="Pearson\nCorrelation") +
+  theme_minimal()+ 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+                                   size = 12, hjust = 1))+
+  coord_fixed()
