@@ -94,3 +94,25 @@ ggplot(data = melted_cormat, aes(Var2, Var1, fill = value))+
   theme(axis.text.x = element_text(angle = 45, vjust = 1, 
                                    size = 12, hjust = 1))+
   coord_fixed()
+
+
+
+
+#Combining datasets, adding crude oil prices and stock prices
+
+eu_ets_data$Date<- as.Date(eu_ets_data$Date)
+brent_crude_proces$Date<- as.Date(brent_crude_proces$Date)
+ftse$Date<- as.Date(ftse$Date)
+
+auction_and_oil<- merge(x=eu_ets_data,y=brent_crude_proces, 
+                         by="Date", all.x=TRUE) 
+
+auction_and_oil<-auction_and_oil |> filter(is.na(auction_and_oil$`Europe Brent Spot Price FOB (Dollars per Barrel)`)==FALSE)
+
+oil_prices<- auction_and_oil$`Europe Brent Spot Price FOB (Dollars per Barrel)`
+pacf(oil_prices, lag=10, pl=TRUE)
+
+ets_stock_and_oil_data<- merge(x=auction_and_oil, y= ftse, by='Date', all.x=TRUE)
+
+
+#Creating Durbin Watson Tests
