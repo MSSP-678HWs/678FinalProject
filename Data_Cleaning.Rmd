@@ -56,6 +56,28 @@ ets_stock_and_oil_data<- ets_stock_and_oil_data |> mutate(
 ), .after=`Auction Name`)
 ```
 
+So let's test autocorrelation for price, co2, etc each subset of the auctions. Starting with EU type:
+```{r}
+EU_only_auction<- ets_stock_and_oil_data |> filter(AuctionType=="EU") |> filter(
+                                          is.na(`Auction Price €/tCO2`)==FALSE
+)
+eu_only_auction_price<-EU_only_auction$`Auction Price €/tCO2`
+
+pacf(eu_only_auction_price, lag=10, pl=TRUE)
+
+
+lag<- EU_only_auction$`Auction Price €/tCO2`[2:length(EU_only_auction$`Auction Price €/tCO2`)-2]
+lag<- c(0,lag,0)
+lag[length(lag)]<-0
+EU_only_with_lag<- EU_only_auction |> mutate(
+                                          lag= lag, .after=`Auction Price €/tCO2`
+)
+
+EU_only_auction_variables_fit<- glm(`Auction Price €/tCO2`~ lag+ `Auction Volume tCO2`+ `Average number of bids per bidder`,
+                            family=gaussian, data=EU_only_with_lag)
+
+durbinWatsonTest(EU_only_auction_variables_fit)
+```
 
 
 
