@@ -1,0 +1,33 @@
+---
+title: "Data_Cleaning"
+output: html_document
+date: "2023-12-08"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+library(tseries)
+library(ggplot2)
+library(tidyverse)
+library(reshape2)
+library(car)
+
+```
+
+Reading in the documents I need:
+```{r}
+brent_crude_prices<- read_excel("brent_crude_prices.xlsx")
+co2_emissions_data<-read.csv("co2_emission.csv")
+ftse<- read.csv("FTSE 100 Historical Data.csv")
+eu_ets_data<-read_excel("EU-ETS-data.xlsx")
+```
+
+Converting dates to the right format so I can join them:
+
+```{r}
+eu_ets_data$Date<- as.Date(eu_ets_data$Date)
+brent_crude_proces$Date<- as.Date(brent_crude_proces$Date)
+ftse$Date<- as.Date(ftse$Date)
+```
+
