@@ -3,6 +3,7 @@ library(tseries)
 library(ggplot2)
 library(tidyverse)
 library(reshape2)
+library(car)
 
 #Trying to find autoregression lag of brent crude oil prices
 
@@ -42,7 +43,7 @@ ggplot(data=co2_emissions_data_after_march_2021, aes(date, y=value/1000000))+
 
 #Let's try the autocorrelation now:
  pacf(co2_emissions_data_after_march_2021$value, lag=20, pl=TRUE)
- 
+ acf(co2_emissions_data_after_march_2021$value, lag=20, pl=TRUE)
  
 
 
@@ -66,6 +67,11 @@ pacf(ftse$Price, lag=10, pl=TRUE)
 
 #Reading in the auction data:
 eu_ets_data<-read_excel("EU-ETS-data.xlsx")
+
+x<- eu_ets_data$`Auction Price €/tCO2`
+auction_price<-data.frame(x)
+auction_price<- auction_price |> filter(is.na(x)==FALSE)
+pacf(auction_price$x, lag=20, pl=TRUE)
 
 #removing na's and selecting the right columns
 eu_ets_variable_cor<- eu_ets_data |> select(`Auction Price €/tCO2`,
@@ -116,3 +122,32 @@ ets_stock_and_oil_data<- merge(x=auction_and_oil, y= ftse, by='Date', all.x=TRUE
 
 
 #Creating Durbin Watson Tests
+
+#just some auction variables
+auction_variables_fit<- glm(`Auction Price €/tCO2`~`Auction Volume tCO2`+`Number of bids submitted`+`Maximum Bid €/tCO2`,
+                            family=gaussian, data=ets_stock_and_oil_data)
+summary(auction_variables_fit)
+
+durbinWatsonTest(auction_variables_fit)
+
+#with oil prices
+
+oil_fit<- glm(`Auction Price €/tCO2`~`Auction Volume tCO2`+`Maximum Bid €/tCO2`+`Europe Brent Spot Price FOB (Dollars per Barrel)`,
+              family=gaussian, data=ets_stock_and_oil_data)
+summary(oil_fit)
+
+durbinWatsonTest(oil_fit)
+
+#Let's try adding a lag: 
+
+lag<- ets_stock_and_oil_data$`Auction Price €/tCO2`[2:length(ets_stock_and_oil_data$`Auction Price €/tCO2`)-2]
+lag<- c(0,lag,0)
+lag[length(lag)]<-0
+ets_with_auction_lag<- ets_stock_and_oil_data |> mutate(
+                                          lag= lag, .after=`Auction Price €/tCO2`
+)
+
+auction_variables_fit<- glm(`Auction Price €/tCO2`~lag+`Auction Volume tCO2`+ `Maximum Bid €/tCO2`,
+                            family=gaussian, data=ets_stock_and_oil_data)
+
+durbinWatsonTest(auction_variables_fit)
