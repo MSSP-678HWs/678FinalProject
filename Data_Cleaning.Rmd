@@ -31,3 +31,29 @@ brent_crude_proces$Date<- as.Date(brent_crude_proces$Date)
 ftse$Date<- as.Date(ftse$Date)
 ```
 
+Joining the three data frames:
+
+```{r}
+auction_and_oil<- merge(x=eu_ets_data,y=brent_crude_proces, 
+                         by="Date", all.x=TRUE) 
+
+auction_and_oil<-auction_and_oil |> filter(is.na(auction_and_oil$`Europe Brent Spot Price FOB (Dollars per Barrel)`)==FALSE)
+
+oil_prices<- auction_and_oil$`Europe Brent Spot Price FOB (Dollars per Barrel)`
+pacf(oil_prices, lag=10, pl=TRUE)
+
+ets_stock_and_oil_data<- merge(x=auction_and_oil, y= ftse, by='Date', all.x=TRUE)
+```
+
+Now we need to clean the ets_stock and oil data so we can get an appropriate lag and check autocorrelations for each type of data:
+```{r}
+#First let's change auction name to just have EU, DE, PL or EUAA:
+
+ets_stock_and_oil_data<- ets_stock_and_oil_data |> mutate(
+                                                  AuctionType = str_sub(A)
+)
+```
+
+
+
+
