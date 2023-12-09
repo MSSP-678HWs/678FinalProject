@@ -136,5 +136,47 @@ pacf(DE_only_with_lag$oil_price, lag=20, pl=TRUE)
 
 ```
 
+Fur Poland und nicht fur Deutschland:
+
+```{r}
+PL_only_auction<-ets_stock_and_oil_data |> filter(AuctionType=="PL") |> filter(
+                                          is.na(`Auction Price €/tCO2`)==FALSE
+)
+PL_only_auction_price<- PL_only_auction$`Auction Price €/tCO2`
+pacf(PL_only_auction_price)
+
+
+lag<- PL_only_auction$`Auction Price €/tCO2`[2:length(PL_only_auction$`Auction Price €/tCO2`)-1]
+lag<- c(0,lag)
+lag[length(lag)]<-0
+PL_only_with_lag<- PL_only_auction |> mutate(
+                                          lag= lag, .after=`Auction Price €/tCO2`
+)
+
+PL_only_auction_variables_fit<- glm(`Auction Price €/tCO2`~ lag+ `Auction Volume tCO2`+ `Maximum Bid €/tCO2`,
+                            family=gaussian, data=PL_only_with_lag)
+
+durbinWatsonTest(PL_only_auction_variables_fit)
+summary(PL_only_auction_variables_fit)
+
+#With oil prices:
+PL_only_with_lag<- PL_only_with_lag |> rename(
+                        oil_price = `Europe Brent Spot Price FOB (Dollars per Barrel)`
+)
+
+PL_only_oil_fit<- glm(`Auction Price €/tCO2`~ lag+ `Auction Volume tCO2`+ `Maximum Bid €/tCO2`+
+                                    oil_price,
+                            family=gaussian, data=PL_only_with_lag)
+summary(PL_only_oil_fit)
+durbinWatsonTest(PL_only_oil_fit)
+
+pacf(PL_only_with_lag$oil_price, lag=20, pl=TRUE)
+```
+What about EUAA:
+```{r}
+
+```
+
+
 Have to join the lags for each subset to the whole data using joins by date and auction type. How much testing does this need?
 
