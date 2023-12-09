@@ -82,6 +82,19 @@ summary(EU_only_auction_variables_fit)
 #DW of 1.27. Not terrible. How do we push this up to acceptable levels?
 
 #What about with oil prices?
+EU_only_with_lag<- EU_only_with_lag |> rename(
+                        oil_price = `Europe Brent Spot Price FOB (Dollars per Barrel)`
+)
+
+EU_only_oil_fit<- glm(`Auction Price €/tCO2`~ lag+ `Auction Volume tCO2`+ `Maximum Bid €/tCO2`+
+                                    oil_price,
+                            family=gaussian, data=EU_only_with_lag)
+summary(EU_only_oil_fit)
+durbinWatsonTest(EU_only_oil_fit)
+
+pacf(EU_only_with_lag$oil_price, lag=20, pl=TRUE)
+
+#So the difference in DW witha nd without oil prices isn't huge. Only 0.01 difference in the test statistic. 
 
 ```
 
