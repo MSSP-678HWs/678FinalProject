@@ -140,14 +140,16 @@ durbinWatsonTest(oil_fit)
 
 #Let's try adding a lag: 
 
-lag<- ets_stock_and_oil_data$`Auction Price €/tCO2`[2:length(ets_stock_and_oil_data$`Auction Price €/tCO2`)-2]
-lag<- c(0,lag,0)
+lag<- ets_stock_and_oil_data$`Auction Price €/tCO2`[2:length(ets_stock_and_oil_data$`Auction Price €/tCO2`)-1]
+lag<- c(0,lag)
 lag[length(lag)]<-0
 ets_with_auction_lag<- ets_stock_and_oil_data |> mutate(
                                           lag= lag, .after=`Auction Price €/tCO2`
 )
 
-auction_variables_fit<- glm(`Auction Price €/tCO2`~lag+`Auction Volume tCO2`+ `Maximum Bid €/tCO2`,
+auction_variables_fit<- glm(`Auction Price €/tCO2`~lag+`Auction Volume tCO2`+ `Average bid size`,
                             family=gaussian, data=ets_stock_and_oil_data)
 
 durbinWatsonTest(auction_variables_fit)
+
+#So this seems good enough

@@ -66,18 +66,34 @@ eu_only_auction_price<-EU_only_auction$`Auction Price €/tCO2`
 pacf(eu_only_auction_price, lag=10, pl=TRUE)
 
 
-lag<- EU_only_auction$`Auction Price €/tCO2`[2:length(EU_only_auction$`Auction Price €/tCO2`)-2]
-lag<- c(0,lag,0)
+lag<- EU_only_auction$`Auction Price €/tCO2`[2:length(EU_only_auction$`Auction Price €/tCO2`)-1]
+lag<- c(0,lag)
 lag[length(lag)]<-0
 EU_only_with_lag<- EU_only_auction |> mutate(
                                           lag= lag, .after=`Auction Price €/tCO2`
 )
 
-EU_only_auction_variables_fit<- glm(`Auction Price €/tCO2`~ lag+ `Auction Volume tCO2`+ `Average number of bids per bidder`,
+EU_only_auction_variables_fit<- glm(`Auction Price €/tCO2`~ lag+ `Auction Volume tCO2`+ `Maximum Bid €/tCO2`,
                             family=gaussian, data=EU_only_with_lag)
 
 durbinWatsonTest(EU_only_auction_variables_fit)
+summary(EU_only_auction_variables_fit)
+
+#DW of 1.27. Not terrible. How do we push this up to acceptable levels?
+
+#What about with oil prices?
+
 ```
 
+Let's check the autoregressive correlation structure and Durbin-Watson for just the German auctions:
+
+```{r}
+DE_only_auction<-ets_stock_and_oil_data |> filter(AuctionType=="DE") |> filter(
+                                          is.na(`Auction Price €/tCO2`)==FALSE
+)
+
+
+
+```
 
 
