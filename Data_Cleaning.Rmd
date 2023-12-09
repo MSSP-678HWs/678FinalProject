@@ -171,12 +171,54 @@ summary(PL_only_oil_fit)
 durbinWatsonTest(PL_only_oil_fit)
 
 pacf(PL_only_with_lag$oil_price, lag=20, pl=TRUE)
+
+#So for Poland, I don't need to worry about autocorrelation at all
 ```
 What about EUAA:
 ```{r}
+EUAA_only_auction<-ets_stock_and_oil_data |> filter(AuctionType=="EUAA") |> filter(
+                                          is.na(`Auction Price €/tCO2`)==FALSE
+)
+EUAA_only_auction_price<- EUAA_only_auction$`Auction Price €/tCO2`
+pacf(EUAA_only_auction_price)
 
+
+lag<- EUAA_only_auction$`Auction Price €/tCO2`[2:length(EUAA_only_auction$`Auction Price €/tCO2`)-1]
+lag<- c(0,lag)
+lag[length(lag)]<-0
+EUAA_only_with_lag<- EUAA_only_auction |> mutate(
+                                          lag= lag, .after=`Auction Price €/tCO2`
+)
+
+EUAA_only_auction_variables_fit<- glm(`Auction Price €/tCO2`~ lag+ `Auction Volume tCO2`+ `Maximum Bid €/tCO2`,
+                            family=gaussian, data=EUAA_only_with_lag)
+
+durbinWatsonTest(EUAA_only_auction_variables_fit)
+summary(EUAA_only_auction_variables_fit)
+
+#With oil prices:
+EUAA_only_with_lag<- EUAA_only_with_lag |> rename(
+                        oil_price = `Europe Brent Spot Price FOB (Dollars per Barrel)`
+)
+
+EUAA_only_oil_fit<- glm(`Auction Price €/tCO2`~ lag+ `Auction Volume tCO2`+ `Maximum Bid €/tCO2`+
+                                    oil_price,
+                            family=gaussian, data=EUAA_only_with_lag)
+summary(EUAA_only_oil_fit)
+durbinWatsonTest(EUAA_only_oil_fit)
+
+pacf(EUAA_only_with_lag$oil_price, lag=20, pl=TRUE)
+
+#lag isn;t significant. Should I leave it out?
+EUAA_only_oil_fit<- glm(`Auction Price €/tCO2`~ `Auction Volume tCO2`+ `Maximum Bid €/tCO2`+
+                                    oil_price,
+                            family=gaussian, data=EUAA_only_with_lag)
+durbinWatsonTest(EUAA_only_oil_fit)
+summary(EUAA_only_oil_fit)
 ```
 
 
 Have to join the lags for each subset to the whole data using joins by date and auction type. How much testing does this need?
+
+Does adding stock prices also raise the DW statistic? For germany above, the oil price addition raises the DW test statistic, probably because its so correlated with prices. TO DO.
 
