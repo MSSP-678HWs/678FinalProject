@@ -218,7 +218,8 @@ summary(EUAA_only_oil_fit)
 ```
 
 
-Have to join the lags for each subset to the whole data using joins by date and auction type. How much testing does this need?
+## TO DO:
+Have to join the lags for each subset to the whole data using joins by date and auction type. How much testing does this need(i.e how do i know i've done it right?)
 
-Does adding stock prices also raise the DW statistic? For germany above, the oil price addition raises the DW test statistic, probably because its so correlated with prices. TO DO.
+Does adding stock prices also raise the DW statistic? For Germany above, the oil price addition raises the DW test statistic, probably because its so correlated with prices. 
 
