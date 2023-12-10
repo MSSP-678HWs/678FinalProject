@@ -328,7 +328,14 @@ summary(eu_no_pool_fit)
 durbinWatsonTest(eu_no_pool_fit)
 
 ```
-We see with the EU only  that only maximum CO2 auction price remains significant. This is probably because the lag plays a much more significant role here. 
+We see with the EU only  that only maximum CO2 auction price remains significant. This is probably because the lag plays a much more significant role here. What can we do about this?
+Let's look at residuals first:
+```{r}
+res<- resid(eu_no_pool_fit)
+plot(fitted(eu_no_pool_fit), res)
+```
+While the DW is better for this model than for the last one, the residuals are worse and variance seems to increase with fitted values. Try log of ftse and oil?
+
 
 
 ## TO DO:
