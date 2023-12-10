@@ -307,7 +307,7 @@ Model diagnostics for the above model, especially a residuals plot"
 
 ```{r}
 res<- resid(ftse_lag_fit)
-plot(fitted(ftse_lag_fit), res)
+plot(fitted(ftse_lag_fit), res)+abline(0,0)
 
 
 ```
@@ -335,7 +335,58 @@ res<- resid(eu_no_pool_fit)
 plot(fitted(eu_no_pool_fit), res)
 ```
 While the DW is better for this model than for the last one, the residuals are worse and variance seems to increase with fitted values. Try log of ftse and oil?
+```{r}
+hist(no_pool_EU$oil_price)
+hist(no_pool_EU$ftse_price)
+hist(no_pool_EU$`Auction Volume tCO2`)
+hist(no_pool_EU$`Maximum Bid €/tCO2`)
+```
+We can see from the histograms above that the skewed distribution comes from the ftse prices. So let's log those and see how our residuals look
 
+
+```{r}
+eu_no_pool_fit_log<- glm(`Auction Price €/tCO2`~lag+`Auction Volume tCO2`+ `Average bid size`+
+                                    oil_price+log(ftse_price),
+                            family=gaussian, data=no_pool_EU)
+
+summary(eu_no_pool_fit_log)
+
+durbinWatsonTest(eu_no_pool_fit_log)
+```
+
+```{r}
+eu_cor_frame<- ets_with_rep_lag |> select(lag,`Auction Volume tCO2`, `Maximum Bid €/tCO2`,
+                                    oil_price, ftse_price) 
+
+eu_cor_frame<- na.omit(eu_cor_frame)
+cor_matrix<- cor(eu_cor_frame)
+
+# Get upper triangle of the correlation matrix
+get_upper_tri <- function(cormat){
+  cormat[lower.tri(cormat)]<- NA
+  return(cormat)
+}
+
+upper_tri <- get_upper_tri(cor_matrix)
+melted_cormat <- melt(upper_tri, na.rm = TRUE)
+
+ggplot(data = melted_cormat, aes(Var2, Var1, fill = value))+
+  geom_tile(color = "white")+
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1,1), space = "Lab", 
+                       name="Pearson\nCorrelation") +
+  theme_minimal()+ 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+                                   size = 12, hjust = 1))+
+  coord_fixed()
+```
+So i guess we need to pick better variables: Maximum bid and lag cannot both exist. 
+In that case, instead of regressing lag, we'll have to transform out variables with the lag. 
+
+Consider the following approaches:
+*Cochrane-Orcutt
+*Hildreth-Lu
+*First Differences
 
 
 ## TO DO:
