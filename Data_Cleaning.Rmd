@@ -237,6 +237,33 @@ ets_EU_DE_with_lag$lag.x<- ifelse(is.na(ets_EU_DE_with_lag$lag.x),
                                   ets_EU_DE_with_lag$lag.y,
                                   ets_EU_DE_with_lag$lag.x)
 ets_EU_DE_with_lag<- ets_EU_DE_with_lag |> rename('lag'='lag.x') |> select(-'lag.y')
+
+#PL lag:
+PL_lag<- PL_only_with_lag |> select('Date', 'AuctionType', 'lag')
+ets_EU_DE_PL_with_lag<- merge(x=ets_EU_DE_with_lag, 
+                              y= PL_lag, by = c('Date', 'AuctionType'),
+                              all.x=TRUE)
+
+ets_EU_DE_PL_with_lag$lag.x<- ifelse(is.na(ets_EU_DE_PL_with_lag$lag.x), 
+                                  ets_EU_DE_PL_with_lag$lag.y,
+                                  ets_EU_DE_PL_with_lag$lag.x)
+
+ets_EU_DE_PL_with_lag<- ets_EU_DE_PL_with_lag |> rename('lag'='lag.x') |> select(-'lag.y')
+
+#Adding EUAA lag:
+
+EUAA_lag<- EUAA_only_with_lag |> select('Date', 'AuctionType', 'lag')
+
+ets_representative_lag<- merge(x=ets_EU_DE_PL_with_lag,
+                               y=EUAA_lag, by = c('Date', 'AuctionType'),
+                               all.x=TRUE)
+ets_representative_lag$lag.x<- ifelse(is.na(ets_representative_lag$lag.x), 
+                                  ets_representative_lag$lag.y,
+                                  ets_representative_lag$lag.x)
+
+ets_representative_lag<- ets_representative_lag |> rename('lag'='lag.x') |> select(-'lag.y')
+
+ets_representative_lag<- ets_representative_lag |> 
 ```
 
 
