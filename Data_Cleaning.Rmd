@@ -303,14 +303,40 @@ summary(ftse_lag_fit)
 durbinWatsonTest(ftse_lag_fit)
 
 ```
+Model diagnostics for the above model, especially a residuals plot"
+
+```{r}
+res<- resid(ftse_lag_fit)
+plot(fitted(ftse_lag_fit), res)
 
 
+```
+Residuals are not pretty but there's no clear correlation issues. They are very close to zero. 
+
+No pooling:
+```{r}
+#No pooling- EU:
+  
+no_pool_EU<- ets_with_rep_lag |> filter(AuctionType=="EU")
+
+eu_no_pool_fit<- glm(`Auction Price €/tCO2`~lag+`Auction Volume tCO2`+ `Maximum Bid €/tCO2`+
+                                    oil_price+ftse_price,
+                            family=gaussian, data=no_pool_EU)
+
+summary(eu_no_pool_fit)
+
+durbinWatsonTest(eu_no_pool_fit)
+
+```
+We see with the EU only  that only maximum CO2 auction price remains significant. This is probably because the lag plays a much more significant role here. 
 
 
 ## TO DO:
 Have to join the lags for each subset to the whole data using joins by date and auction type. How much testing does this need(i.e how do i know i've done it right?)(DONE)
 
 Does adding stock prices also raise the DW statistic? For Germany above, the oil price addition raises the DW test statistic, probably because its so correlated with prices. (Yes it does. Brilliant)(DONE)
+
+Do i need to pick my variables(the ones from within the auction dataset) better?
 
 Partial and no pooling needs to be done. Vary intercept certainly. Vary slope too?
 
