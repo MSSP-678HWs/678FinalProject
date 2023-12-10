@@ -218,6 +218,31 @@ summary(EUAA_only_oil_fit)
 ```
 
 
+```{r}
+ets_rbind_lag<- rbind(
+                                EU_only_with_lag, 
+                                EUAA_only_with_lag, 
+                                DE_only_with_lag, 
+                                PL_only_with_lag) |> arrange(desc('Date'))
+
+#Merging, beginning with EU lag
+EU_lag<- EU_only_with_lag |> select('Date','AuctionType', 'lag')
+ets_EU_only_lag<- merge(x=ets_stock_and_oil_data, y= EU_lag, by=c('Date', 'AuctionType'), all.x=TRUE)
+ets_EU_only_lag<- ets_EU_only_lag |> select(-c(Price:Change..))
+
+#DE lag:
+DE_lag<- DE_only_with_lag |> select('Date', 'AuctionType', 'lag')
+ets_EU_DE_with_lag<- merge(x=ets_EU_only_lag, y=DE_lag, by=c('Date', 'AuctionType'), all.x=TRUE)
+ets_EU_DE_with_lag$lag.x<- ifelse(is.na(ets_EU_DE_with_lag$lag.x), 
+                                  ets_EU_DE_with_lag$lag.y,
+                                  ets_EU_DE_with_lag$lag.x)
+ets_EU_DE_with_lag<- ets_EU_DE_with_lag |> rename('lag'='lag.x') |> select(-'lag.y')
+```
+
+
+
+
+
 ## TO DO:
 Have to join the lags for each subset to the whole data using joins by date and auction type. How much testing does this need(i.e how do i know i've done it right?)
 
