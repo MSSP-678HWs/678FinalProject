@@ -675,7 +675,44 @@ pacf(ets_with_rep_lag$`Auction Price €/tCO2`)
 So pretty much all of them:
 
 ```{r}
-#Creating lag for max price:
+#Lags have been created above. So let's run a first differences procedure.
+
+#Starting by transforming the variables:
+
+ets_first_diff<- ets_representative_lag |> rename(
+                  oil_price= `Europe Brent Spot Price FOB (Dollars per Barrel)`,
+                  ftse_price = Price
+)
+
+ets_first_diff<-ets_first_diff |> mutate(
+                  Auction_Price_fd = `Auction Price €/tCO2`- Auction_Price_lag,
+                  Max_bid_fd = `Maximum Bid €/tCO2` - Max_bid_lag,
+                  Avg_bids_fd= `Average number of bids per bidder` - Avg_num_bids_per_bidder_lag,
+                  Avg_vol_fd= `Average volume bid per bidder`- Avg_vol_per_bidder_lag,
+                  Auction_vol_fd = `Auction Volume tCO2`- Auction_vol_lag,
+                  oil_price_fd = oil_price - oil_price_lag,
+                  ftse_price_fd = ftse_price -ftse_price_lag
+) |> select (
+            Auction_Price_fd,
+            Max_bid_fd,
+            Avg_bids_fd,
+            Avg_vol_fd,
+            Auction_vol_fd,
+            oil_price_fd,
+            ftse_price_fd
+)
+
+lag_transformed_fit<- glm(Auction_Price_fd ~ Max_bid_fd+Avg_bids_fd+Avg_vol_fd+
+                            Auction_vol_fd+oil_price_fd+ftse_price_fd, 
+                          family=gaussian(), data=ets_first_diff)
+
+summary(lag_transformed_fit)
+
+durbinWatsonTest(lag_transformed_fit)
+
+#So this works, DW statistic is within good bounds. Now we need to run the regression without intercept, find the sample mean for each statistic and calculate the new fitted model. 
+
+#Other models we use can run one of the other procedures to deal with time series correlations
 
 ```
 
