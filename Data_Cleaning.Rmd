@@ -512,16 +512,30 @@ ets_representative_lag<- merge(x=ets_EU_DE_PL_with_lag,
                                y=EUAA_lag, by = c('Date', 'AuctionType'),
                                all.x=TRUE)
 
-ets_representative_lag$lag.x<- ifelse(is.na(ets_representative_lag$lag.x), 
-                                  ets_representative_lag$lag.y,
-                                  ets_representative_lag$lag.x)
+for(name in lagColnamesVec){
+  x=paste0(name,".x")
+  y=paste0(name,".y")
+  ets_representative_lag[,x]<-ifelse(is.na(ets_representative_lag[,x]), 
+                                  ets_representative_lag[,y],
+                                  ets_representative_lag[,x])
+}
 
-ets_representative_lag<- ets_representative_lag |> rename('lag'='lag.x') |> select(-'lag.y')
+ets_representative_lag<- ets_representative_lag |> rename(
+                                    'Auction_Price_lag'= 'Auction_Price_lag.x',
+                                    'Max_bid_lag'= 'Max_bid_lag.x',
+                                    'Avg_num_bids_per_bidder_lag'='Avg_num_bids_per_bidder_lag.x',
+                                    'Avg_vol_per_bidder_lag'='Avg_vol_per_bidder_lag.x',
+                                    'Auction_vol_lag'= 'Auction_vol_lag.x',
+                                    'oil_price_lag'= 'oil_price_lag.x',
+                                    'ftse_price_lag'='ftse_price_lag.x'
+                                    ) |> select(-c('Auction_Price_lag.y',
+                                    'Max_bid_lag.y',
+                                    'Avg_num_bids_per_bidder_lag.y',
+                                    'Avg_vol_per_bidder_lag.y',
+                                    'Auction_vol_lag.y',
+                                    'oil_price_lag.y',
+                                    'ftse_price_lag.y'))
 
-ets_representative_lag<- ets_representative_lag |> relocate(lag, 
-                                  .after=`Auction Price €/tCO2`) |> rename(
-             oil_price = `Europe Brent Spot Price FOB (Dollars per Barrel)`
-                                  )
 ```
 
 Now that we have lag set up correctly, let's regress with it and see how that affects our DW statistic:
