@@ -99,7 +99,7 @@ EU_only_with_lag<- EU_only_with_lag |> mutate(
 EU_only_with_lag<- EU_only_with_lag |> rename(
                         oil_price = `Europe Brent Spot Price FOB (Dollars per Barrel)`
 )
-oil_price_lag<- EU_only_auction$oil_price[1:length(EU_only_auction$oil_price)-1]
+oil_price_lag<- EU_only_with_lag$oil_price[1:length(EU_only_with_lag$oil_price)-1]
 oil_price_lag<- c(0,oil_price_lag)
 EU_only_with_lag<- EU_only_with_lag |> mutate(
                                           oil_price_lag= oil_price_lag, .after= oil_price
@@ -109,7 +109,7 @@ EU_only_with_lag<- EU_only_with_lag |> mutate(
 EU_only_with_lag<- EU_only_with_lag |> rename(
                         ftse_price = Price
 )
-ftse_price_lag<- EU_only_auction$ftse_price[1:length(EU_only_auction$ftse_price)-1]
+ftse_price_lag<- EU_only_with_lag$ftse_price[1:length(EU_only_with_lag$ftse_price)-1]
 ftse_price_lag<- c(0,ftse_price_lag)
 EU_only_with_lag<- EU_only_with_lag |> mutate(
                                           ftse_price_lag= ftse_price_lag, .after= ftse_price
@@ -186,7 +186,7 @@ DE_only_with_lag<- DE_only_with_lag |> mutate(
 DE_only_with_lag<- DE_only_with_lag |> rename(
                         oil_price = `Europe Brent Spot Price FOB (Dollars per Barrel)`
 )
-oil_price_lag<- DE_only_auction$oil_price[1:length(DE_only_auction$oil_price)-1]
+oil_price_lag<- DE_only_with_lag$oil_price[1:length(DE_only_with_lag$oil_price)-1]
 oil_price_lag<- c(0,oil_price_lag)
 DE_only_with_lag<- DE_only_with_lag |> mutate(
                                           oil_price_lag= oil_price_lag, .after= oil_price
@@ -196,7 +196,7 @@ DE_only_with_lag<- DE_only_with_lag |> mutate(
 DE_only_with_lag<- DE_only_with_lag |> rename(
                         ftse_price = Price
 )
-ftse_price_lag<- DE_only_auction$ftse_price[1:length(DE_only_auction$ftse_price)-1]
+ftse_price_lag<- DE_only_with_lag$ftse_price[1:length(DE_only_with_lag$ftse_price)-1]
 ftse_price_lag<- c(0,ftse_price_lag)
 DE_only_with_lag<- DE_only_with_lag |> mutate(
                                           ftse_price_lag= ftse_price_lag, .after= ftse_price
@@ -210,13 +210,13 @@ DE_only_with_lag<- DE_only_with_lag |> mutate(
                                           Auction_vol_lag= Auction_vol_lag, .after=`Auction Volume tCO2`
 )
 
-DE_only_oil_fit<- glm(`Auction Price €/tCO2`~ lag+ `Auction Volume tCO2`+ `Maximum Bid €/tCO2`+
-                                    oil_price,
-                            family=gaussian, data=DE_only_with_lag)
-summary(DE_only_oil_fit)
-durbinWatsonTest(DE_only_oil_fit)
+#DE_only_oil_fit<- glm(`Auction Price €/tCO2`~ lag+ `Auction Volume tCO2`+ `Maximum Bid €/tCO2`+
+#                                    oil_price,
+ #                           family=gaussian, data=DE_only_with_lag)
+#summary(DE_only_oil_fit)
+#durbinWatsonTest(DE_only_oil_fit)
 
-pacf(DE_only_with_lag$oil_price, lag=20, pl=TRUE)
+#pacf(DE_only_with_lag$oil_price, lag=20, pl=TRUE)
 
 ```
 
@@ -262,7 +262,7 @@ PL_only_with_lag<- PL_only_with_lag |> mutate(
 PL_only_with_lag<- PL_only_with_lag |> rename(
                         oil_price = `Europe Brent Spot Price FOB (Dollars per Barrel)`
 )
-oil_price_lag<- PL_only_auction$oil_price[1:length(PL_only_auction$oil_price)-1]
+oil_price_lag<- PL_only_with_lag$oil_price[1:length(PL_only_with_lag$oil_price)-1]
 oil_price_lag<- c(0,oil_price_lag)
 PL_only_with_lag<- PL_only_with_lag |> mutate(
                                           oil_price_lag= oil_price_lag, .after= oil_price
@@ -272,7 +272,7 @@ PL_only_with_lag<- PL_only_with_lag |> mutate(
 PL_only_with_lag<- PL_only_with_lag |> rename(
                         ftse_price = Price
 )
-ftse_price_lag<- PL_only_auction$ftse_price[1:length(PL_only_auction$ftse_price)-1]
+ftse_price_lag<- PL_only_with_lag$ftse_price[1:length(PL_only_with_lag$ftse_price)-1]
 ftse_price_lag<- c(0,ftse_price_lag)
 PL_only_with_lag<- PL_only_with_lag |> mutate(
                                           ftse_price_lag= ftse_price_lag, .after= ftse_price
@@ -286,13 +286,13 @@ PL_only_with_lag<- PL_only_with_lag |> mutate(
                                           Auction_vol_lag= Auction_vol_lag, .after=`Auction Volume tCO2`
 )
 
-PL_only_oil_fit<- glm(`Auction Price €/tCO2`~ lag+ `Auction Volume tCO2`+ `Maximum Bid €/tCO2`+
-                                    oil_price,
-                            family=gaussian, data=PL_only_with_lag)
-summary(PL_only_oil_fit)
-durbinWatsonTest(PL_only_oil_fit)
+#PL_only_oil_fit<- glm(`Auction Price €/tCO2`~ lag+ `Auction Volume tCO2`+ `Maximum Bid €/tCO2`+
+ #                                   oil_price,
+  #                          family=gaussian, data=PL_only_with_lag)
+#summary(PL_only_oil_fit)
+#durbinWatsonTest(PL_only_oil_fit)
 
-pacf(PL_only_with_lag$oil_price, lag=20, pl=TRUE)
+#pacf(PL_only_with_lag$oil_price, lag=20, pl=TRUE)
 
 #So for Poland, I don't need to worry about autocorrelation at all
 ```
@@ -337,7 +337,7 @@ EUAA_only_with_lag<- EUAA_only_with_lag |> mutate(
 EUAA_only_with_lag<- EUAA_only_with_lag |> rename(
                         oil_price = `Europe Brent Spot Price FOB (Dollars per Barrel)`
 )
-oil_price_lag<- EUAA_only_auction$oil_price[1:length(EUAA_only_auction$oil_price)-1]
+oil_price_lag<- EUAA_only_with_lag$oil_price[1:length(EUAA_only_with_lag$oil_price)-1]
 oil_price_lag<- c(0,oil_price_lag)
 EUAA_only_with_lag<- EUAA_only_with_lag |> mutate(
                                           oil_price_lag= oil_price_lag, .after= oil_price
@@ -347,7 +347,7 @@ EUAA_only_with_lag<- EUAA_only_with_lag |> mutate(
 EUAA_only_with_lag<- EUAA_only_with_lag |> rename(
                         ftse_price = Price
 )
-ftse_price_lag<- EUAA_only_auction$ftse_price[1:length(EUAA_only_auction$ftse_price)-1]
+ftse_price_lag<- EUAA_only_with_lag$ftse_price[1:length(EUAA_only_with_lag$ftse_price)-1]
 ftse_price_lag<- c(0,ftse_price_lag)
 EUAA_only_with_lag<- EUAA_only_with_lag |> mutate(
                                           ftse_price_lag= ftse_price_lag, .after= ftse_price
@@ -361,31 +361,31 @@ EUAA_only_with_lag<- EUAA_only_with_lag |> mutate(
                                           Auction_vol_lag= Auction_vol_lag, .after=`Auction Volume tCO2`
 )
 
-EUAA_only_auction_variables_fit<- glm(`Auction Price €/tCO2`~ lag+ `Auction Volume tCO2`+ `Maximum Bid €/tCO2`,
-                            family=gaussian, data=EUAA_only_with_lag)
+#EUAA_only_auction_variables_fit<- glm(`Auction Price €/tCO2`~ lag+ `Auction Volume tCO2`+ `Maximum Bid €/tCO2`,
+#                            family=gaussian, data=EUAA_only_with_lag)
 
-durbinWatsonTest(EUAA_only_auction_variables_fit)
-summary(EUAA_only_auction_variables_fit)
+#durbinWatsonTest(EUAA_only_auction_variables_fit)
+#summary(EUAA_only_auction_variables_fit)
 
 #With oil prices:
-EUAA_only_with_lag<- EUAA_only_with_lag |> rename(
-                        oil_price = `Europe Brent Spot Price FOB (Dollars per Barrel)`
-)
+#EUAA_only_with_lag<- EUAA_only_with_lag |> rename(
+#                        oil_price = `Europe Brent Spot Price FOB (Dollars per Barrel)`
+#)
 
-EUAA_only_oil_fit<- glm(`Auction Price €/tCO2`~ lag+ `Auction Volume tCO2`+ `Maximum Bid €/tCO2`+
-                                    oil_price,
-                            family=gaussian, data=EUAA_only_with_lag)
-summary(EUAA_only_oil_fit)
-durbinWatsonTest(EUAA_only_oil_fit)
+#EUAA_only_oil_fit<- glm(`Auction Price €/tCO2`~ lag+ `Auction Volume tCO2`+ `Maximum Bid €/tCO2`+
+#                                    oil_price,
+#                            family=gaussian, data=EUAA_only_with_lag)
+#summary(EUAA_only_oil_fit)
+#durbinWatsonTest(EUAA_only_oil_fit)
 
-pacf(EUAA_only_with_lag$oil_price, lag=20, pl=TRUE)
+#pacf(EUAA_only_with_lag$oil_price, lag=20, pl=TRUE)
 
 #lag isn;t significant. Should I leave it out?
-EUAA_only_oil_fit<- glm(`Auction Price €/tCO2`~ `Auction Volume tCO2`+ `Maximum Bid €/tCO2`+
-                                    oil_price,
-                            family=gaussian, data=EUAA_only_with_lag)
-durbinWatsonTest(EUAA_only_oil_fit)
-summary(EUAA_only_oil_fit)
+#EUAA_only_oil_fit<- glm(`Auction Price €/tCO2`~ `Auction Volume tCO2`+ `Maximum Bid €/tCO2`+
+ #                                   oil_price,
+#                            family=gaussian, data=EUAA_only_with_lag)
+#durbinWatsonTest(EUAA_only_oil_fit)
+#summary(EUAA_only_oil_fit)
 ```
 
 
@@ -393,37 +393,125 @@ summary(EUAA_only_oil_fit)
 
 
 #Merging, beginning with EU lag
-EU_lag<- EU_only_with_lag |> select('Date','AuctionType', 'lag')
+EU_lag<- EU_only_with_lag |> select('Date',
+                                    'AuctionType', 
+                                    'Auction_Price_lag',
+                                    'Max_bid_lag',
+                                    'Avg_num_bids_per_bidder_lag',
+                                    'Avg_vol_per_bidder_lag',
+                                    'Auction_vol_lag',
+                                    'oil_price_lag',
+                                    'ftse_price_lag'
+                                    )
 ets_EU_only_lag<- merge(x=ets_stock_and_oil_data, y= EU_lag, by=c('Date', 'AuctionType'), all.x=TRUE)
-ets_EU_only_lag<- ets_EU_only_lag |> select(-c(Price:Change..))
+ets_EU_only_lag<- ets_EU_only_lag |> select(-c(Open:Change..))
+
+
+lagColnamesVec<- c('Auction_Price_lag',
+                                    'Max_bid_lag',
+                                    'Avg_num_bids_per_bidder_lag',
+                                    'Avg_vol_per_bidder_lag',
+                                    'Auction_vol_lag',
+                                    'oil_price_lag',
+                                    'ftse_price_lag')
 
 #DE lag:
-DE_lag<- DE_only_with_lag |> select('Date', 'AuctionType', 'lag')
+DE_lag<- DE_only_with_lag |> select('Date',
+                                    'AuctionType', 
+                                    'Auction_Price_lag',
+                                    'Max_bid_lag',
+                                    'Avg_num_bids_per_bidder_lag',
+                                    'Avg_vol_per_bidder_lag',
+                                    'Auction_vol_lag',
+                                    'oil_price_lag',
+                                    'ftse_price_lag'
+                                    )
 ets_EU_DE_with_lag<- merge(x=ets_EU_only_lag, y=DE_lag, by=c('Date', 'AuctionType'), all.x=TRUE)
-ets_EU_DE_with_lag$lag.x<- ifelse(is.na(ets_EU_DE_with_lag$lag.x), 
-                                  ets_EU_DE_with_lag$lag.y,
-                                  ets_EU_DE_with_lag$lag.x)
-ets_EU_DE_with_lag<- ets_EU_DE_with_lag |> rename('lag'='lag.x') |> select(-'lag.y')
+
+
+for(name in lagColnamesVec){
+  x=paste0(name,".x")
+  y=paste0(name,".y")
+  ets_EU_DE_with_lag[,x]<-ifelse(is.na(ets_EU_DE_with_lag[,x]), 
+                                  ets_EU_DE_with_lag[,y],
+                                  ets_EU_DE_with_lag[,x])
+}
+
+
+ets_EU_DE_with_lag<- ets_EU_DE_with_lag |> rename(
+                                    'Auction_Price_lag'= 'Auction_Price_lag.x',
+                                    'Max_bid_lag'= 'Max_bid_lag.x',
+                                    'Avg_num_bids_per_bidder_lag'='Avg_num_bids_per_bidder_lag.x',
+                                    'Avg_vol_per_bidder_lag'='Avg_vol_per_bidder_lag.x',
+                                    'Auction_vol_lag'= 'Auction_vol_lag.x',
+                                    'oil_price_lag'= 'oil_price_lag.x',
+                                    'ftse_price_lag'='ftse_price_lag.x'
+                                    ) |> select(-c('Auction_Price_lag.y',
+                                    'Max_bid_lag.y',
+                                    'Avg_num_bids_per_bidder_lag.y',
+                                    'Avg_vol_per_bidder_lag.y',
+                                    'Auction_vol_lag.y',
+                                    'oil_price_lag.y',
+                                    'ftse_price_lag.y'))
 
 #PL lag:
-PL_lag<- PL_only_with_lag |> select('Date', 'AuctionType', 'lag')
+PL_lag<- PL_only_with_lag |> select('Date',
+                                    'AuctionType', 
+                                    'Auction_Price_lag',
+                                    'Max_bid_lag',
+                                    'Avg_num_bids_per_bidder_lag',
+                                    'Avg_vol_per_bidder_lag',
+                                    'Auction_vol_lag',
+                                    'oil_price_lag',
+                                    'ftse_price_lag'
+                                    )
 ets_EU_DE_PL_with_lag<- merge(x=ets_EU_DE_with_lag, 
                               y= PL_lag, by = c('Date', 'AuctionType'),
                               all.x=TRUE)
 
-ets_EU_DE_PL_with_lag$lag.x<- ifelse(is.na(ets_EU_DE_PL_with_lag$lag.x), 
-                                  ets_EU_DE_PL_with_lag$lag.y,
-                                  ets_EU_DE_PL_with_lag$lag.x)
+for(name in lagColnamesVec){
+  x=paste0(name,".x")
+  y=paste0(name,".y")
+  ets_EU_DE_PL_with_lag[,x]<-ifelse(is.na(ets_EU_DE_PL_with_lag[,x]), 
+                                  ets_EU_DE_PL_with_lag[,y],
+                                  ets_EU_DE_PL_with_lag[,x])
+}
 
-ets_EU_DE_PL_with_lag<- ets_EU_DE_PL_with_lag |> rename('lag'='lag.x') |> select(-'lag.y')
+ets_EU_DE_PL_with_lag<- ets_EU_DE_PL_with_lag |> rename(
+                                    'Auction_Price_lag'= 'Auction_Price_lag.x',
+                                    'Max_bid_lag'= 'Max_bid_lag.x',
+                                    'Avg_num_bids_per_bidder_lag'='Avg_num_bids_per_bidder_lag.x',
+                                    'Avg_vol_per_bidder_lag'='Avg_vol_per_bidder_lag.x',
+                                    'Auction_vol_lag'= 'Auction_vol_lag.x',
+                                    'oil_price_lag'= 'oil_price_lag.x',
+                                    'ftse_price_lag'='ftse_price_lag.x'
+                                    ) |> select(-c('Auction_Price_lag.y',
+                                    'Max_bid_lag.y',
+                                    'Avg_num_bids_per_bidder_lag.y',
+                                    'Avg_vol_per_bidder_lag.y',
+                                    'Auction_vol_lag.y',
+                                    'oil_price_lag.y',
+                                    'ftse_price_lag.y'))
+
+
 
 #Adding EUAA lag:
 
-EUAA_lag<- EUAA_only_with_lag |> select('Date', 'AuctionType', 'lag')
+EUAA_lag<- EUAA_only_with_lag |> select('Date',
+                                    'AuctionType', 
+                                    'Auction_Price_lag',
+                                    'Max_bid_lag',
+                                    'Avg_num_bids_per_bidder_lag',
+                                    'Avg_vol_per_bidder_lag',
+                                    'Auction_vol_lag',
+                                    'oil_price_lag',
+                                    'ftse_price_lag'
+                                    )
 
 ets_representative_lag<- merge(x=ets_EU_DE_PL_with_lag,
                                y=EUAA_lag, by = c('Date', 'AuctionType'),
                                all.x=TRUE)
+
 ets_representative_lag$lag.x<- ifelse(is.na(ets_representative_lag$lag.x), 
                                   ets_representative_lag$lag.y,
                                   ets_representative_lag$lag.x)
