@@ -66,15 +66,32 @@ eu_only_auction_price<-EU_only_auction$`Auction Price €/tCO2`
 
 pacf(eu_only_auction_price, lag=10, pl=TRUE)
 
-
-lag<- EU_only_auction$`Auction Price €/tCO2`[2:length(EU_only_auction$`Auction Price €/tCO2`)-1]
-lag<- c(0,lag)
-lag[length(lag)]<-0
+#Auction Price Lag
+Auction_Price_lag<- EU_only_auction$`Auction Price €/tCO2`[2:length(EU_only_auction$`Auction Price €/tCO2`)-1]
+Auction_Price_lag<- c(0,Auction_Price_lag)
+Auction_Price_lag[length(Auction_Price_lag)]<-0
 EU_only_with_lag<- EU_only_auction |> mutate(
-                                          lag= lag, .after=`Auction Price €/tCO2`
+                                          Auction_Price_lag= Auction_Price_lag, .after=`Auction Price €/tCO2`
 )
 
-EU_only_auction_variables_fit<- glm(`Auction Price €/tCO2`~ lag+ `Auction Volume tCO2`+ `Maximum Bid €/tCO2`,
+#Maximum bid lag
+Max_bid_lag<- EU_only_auction$`Maximum Bid €/tCO2`[2:length(EU_only_auction$`Maximum Bid €/tCO2`)-1]
+Max_bid_lag<- c(0,Max_bid_lag)
+Max_bid_lag[length(Max_bid_lag)]<-0
+EU_only_with_lag<- EU_only_auction |> mutate(
+                                          Max_bid_lag= Max_bid_lag, .after=`Maximum Bid €/tCO2`
+)
+
+#Avg bids per bidder lag
+Avg_num_bids_per_bidder_lag<- EU_only_auction$`Average number of bids per bidder`[2:length(EU_only_auction$`Average number of bids per bidder`)-1]
+Avg_num_bids_per_bidder_lag<- c(0,Avg_num_bids_per_bidder_lag)
+Avg_num_bids_per_bidder_lag[length(Avg_num_bids_per_bidder_lag)]<-0
+EU_only_with_lag<- EU_only_auction |> mutate(
+                                          Avg_num_bids_per_bidder_lag= Avg_num_bids_per_bidder_lag, .after=`Maximum Bid €/tCO2`
+)
+
+
+EU_only_auction_variables_fit<- glm(`Auction Price €/tCO2`~ Auction_Price_lag+ `Auction Volume tCO2`+ `Maximum Bid €/tCO2`,
                             family=gaussian, data=EU_only_with_lag)
 
 durbinWatsonTest(EU_only_auction_variables_fit)
@@ -345,7 +362,7 @@ We can see from the histograms above that the skewed distribution comes from the
 
 
 ```{r}
-eu_no_pool_fit_log<- glm(`Auction Price €/tCO2`~lag+`Auction Volume tCO2`+ `Average bid size`+
+eu_no_pool_fit_log<- glm(`Auction Price €/tCO2`~`Maximum Bid €/tCO2`+`Auction Volume tCO2`+ `Average bid size`+
                                     oil_price+log(ftse_price),
                             family=gaussian, data=no_pool_EU)
 
@@ -355,7 +372,7 @@ durbinWatsonTest(eu_no_pool_fit_log)
 ```
 
 ```{r}
-eu_cor_frame<- ets_with_rep_lag |> select(lag,`Auction Volume tCO2`, `Maximum Bid €/tCO2`,
+eu_cor_frame<- ets_with_rep_lag |> select(`Auction Volume tCO2`, `Maximum Bid €/tCO2`,`Average bid size`,`Average volume bid per bidder`,
                                     oil_price, ftse_price) 
 
 eu_cor_frame<- na.omit(eu_cor_frame)
@@ -387,6 +404,32 @@ Consider the following approaches:
 *Cochrane-Orcutt
 *Hildreth-Lu
 *First Differences
+
+
+#First Differences Procedure:
+
+Which of the dependent variables do we need to create lags for?:
+PACF time:
+```{r}
+ets_with_rep_lag<- na.omit(ets_with_rep_lag)
+pacf(ets_with_rep_lag$`Maximum Bid €/tCO2`)
+pacf(ets_with_rep_lag$`Average number of bids per bidder`)
+pacf(ets_with_rep_lag$`Average volume bid per bidder`)
+pacf(ets_with_rep_lag$oil_price)
+pacf(ets_with_rep_lag$ftse_price)
+pacf(ets_with_rep_lag$`Total Amount of Bids`)
+pacf(ets_with_rep_lag$`Auction Volume tCO2`)
+pacf(ets_with_rep_lag$`Auction Price €/tCO2`)
+```
+So pretty much all of them:
+
+```{r}
+#Creating lag for max price:
+
+```
+
+
+
 
 
 ## TO DO:
