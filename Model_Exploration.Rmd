@@ -800,6 +800,6 @@ plot(fitted(EUAA_lag_transformed_fit), res)
 
 #What about partial pooling?
 
-We're going to try just varying intercept first:
+We're going to try just varying intercept first even though it seems likely that varying the slope might be useful simply because some models need the lag transformation and others don't and that might affect slope.
 
 
