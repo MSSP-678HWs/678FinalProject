@@ -802,4 +802,27 @@ plot(fitted(EUAA_lag_transformed_fit), res)
 
 We're going to try just varying intercept first even though it seems likely that varying the slope might be useful simply because some models need the lag transformation and others don't and that might affect slope.
 
+Starting by just varying intercept:
+
+```{r}
+ets_modeling_data$AuctionType<- factor(ets_modeling_data$AuctionType)
+ets_partial_pooling_first_diff<-ets_modeling_data |> mutate(
+                  Auction_Price_fd = `Auction Price €/tCO2`- Auction_Price_lag,
+                  Max_bid_fd = `Maximum Bid €/tCO2` - Max_bid_lag,
+                  Avg_bids_fd= `Average number of bids per bidder` - Avg_num_bids_per_bidder_lag,
+                  Avg_vol_fd= `Average volume bid per bidder`- Avg_vol_per_bidder_lag,
+                  Auction_vol_fd = `Auction Volume tCO2`- Auction_vol_lag,
+                  oil_price_fd = oil_price - oil_price_lag,
+                  ftse_price_fd = ftse_price -ftse_price_lag
+) 
+partial_pool_fit_intercept_only<- lmer(Auction_Price_fd ~ Max_bid_fd+Avg_bids_fd+Avg_vol_fd+
+                            Auction_vol_fd+oil_price_fd+ftse_price_fd+ (1|AuctionType),
+                            data=ets_partial_pooling_first_diff)
+
+summary(partial_pool_fit_intercept_only)
+
+durbinWatsonTest(partial_pool_fit_intercept_only)
+```
+
+#Force intercept to zero in aboive model
 
