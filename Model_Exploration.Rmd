@@ -635,4 +635,171 @@ res<- resid(EU_lag_transformed_fit)
 plot(fitted(EU_lag_transformed_fit), res)
 
 ```
+ No pooling for German Auctions:
+ 
+```{r}
+ets_DE_only<- ets_modeling_data |> filter(AuctionType=="DE")
+
+#Let's start with a no lag fit, even though the DW for this is going to be terrible:
+
+DE_fit_no_lag<- glm(`Auction Price €/tCO2` ~ `Maximum Bid €/tCO2`+
+                                          `Average number of bids per bidder`+
+                                          `Average volume bid per bidder`+
+                                          `Auction Volume tCO2`+
+                                            oil_price+ ftse_price, 
+                 family=gaussian, data=ets_DE_only)
+
+summary(DE_fit_no_lag)
+durbinWatsonTest(DE_fit_no_lag)
+res<- resid(fit_no_lag)
+pacf(res,lag=10, pl=TRUE)
+
+#As expected. Let's run it with the lag:
+
+
+DE_ets_first_diff<- ets_DE_only|> mutate(
+                  Auction_Price_fd = `Auction Price €/tCO2`- Auction_Price_lag,
+                  Max_bid_fd = `Maximum Bid €/tCO2` - Max_bid_lag,
+                  Avg_bids_fd= `Average number of bids per bidder` - Avg_num_bids_per_bidder_lag,
+                  Avg_vol_fd= `Average volume bid per bidder`- Avg_vol_per_bidder_lag,
+                  Auction_vol_fd = `Auction Volume tCO2`- Auction_vol_lag,
+                  oil_price_fd = oil_price - oil_price_lag,
+                  ftse_price_fd = ftse_price -ftse_price_lag
+) |> select (
+            Auction_Price_fd,
+            Max_bid_fd,
+            Avg_bids_fd,
+            Avg_vol_fd,
+            Auction_vol_fd,
+            oil_price_fd,
+            ftse_price_fd
+)
+DE_lag_transformed_fit<- glm(Auction_Price_fd ~ Max_bid_fd+Avg_bids_fd+Avg_vol_fd+
+                            Auction_vol_fd+oil_price_fd+ftse_price_fd, 
+                          family=gaussian(), data=DE_ets_first_diff)
+
+summary(DE_lag_transformed_fit)
+
+durbinWatsonTest(DE_lag_transformed_fit)
+
+#Note, this isn't the final model, we still need to fit a no intercept model and then adjust the intercept with the means for each data thing. Lets check residuals anyway
+
+res<- resid(DE_lag_transformed_fit)
+plot(fitted(DE_lag_transformed_fit), res)
+
+```
+
+No Pooling model Fur Poland und Nicht fur Deutschland:
+```{r}
+ets_PL_only<- ets_modeling_data |> filter(AuctionType=="PL")
+
+#Let's start with a no lag fit, even though the DW for this is going to be terrible:
+
+PL_fit_no_lag<- glm(`Auction Price €/tCO2` ~ `Maximum Bid €/tCO2`+
+                                          `Average number of bids per bidder`+
+                                          `Average volume bid per bidder`+
+                                          `Auction Volume tCO2`+
+                                            oil_price+ ftse_price, 
+                 family=gaussian, data=ets_PL_only)
+
+summary(PL_fit_no_lag)
+durbinWatsonTest(PL_fit_no_lag)
+res<- resid(fit_no_lag)
+pacf(res,lag=10, pl=TRUE)
+
+#As expected. Let's run it with the lag:
+
+
+PL_ets_first_diff<- ets_PL_only|> mutate(
+                  Auction_Price_fd = `Auction Price €/tCO2`- Auction_Price_lag,
+                  Max_bid_fd = `Maximum Bid €/tCO2` - Max_bid_lag,
+                  Avg_bids_fd= `Average number of bids per bidder` - Avg_num_bids_per_bidder_lag,
+                  Avg_vol_fd= `Average volume bid per bidder`- Avg_vol_per_bidder_lag,
+                  Auction_vol_fd = `Auction Volume tCO2`- Auction_vol_lag,
+                  oil_price_fd = oil_price - oil_price_lag,
+                  ftse_price_fd = ftse_price -ftse_price_lag
+) |> select (
+            Auction_Price_fd,
+            Max_bid_fd,
+            Avg_bids_fd,
+            Avg_vol_fd,
+            Auction_vol_fd,
+            oil_price_fd,
+            ftse_price_fd
+)
+PL_lag_transformed_fit<- glm(Auction_Price_fd ~ Max_bid_fd+Avg_bids_fd+Avg_vol_fd+
+                            Auction_vol_fd+oil_price_fd+ftse_price_fd, 
+                          family=gaussian(), data=PL_ets_first_diff)
+
+summary(PL_lag_transformed_fit)
+
+durbinWatsonTest(PL_lag_transformed_fit)
+
+#DW is much too high. We will have to test the lag permutations for this and sort it out
+
+#Note, this isn't the final model, we still need to fit a no intercept model and then adjust the intercept with the means for each data thing. Lets check residuals anyway
+
+res<- resid(PL_lag_transformed_fit)
+plot(fitted(PL_lag_transformed_fit), res)
+```
+
+EUAA:
+
+```{r}
+ets_EUAA_only<- ets_modeling_data |> filter(AuctionType=="EUAA")
+
+#Let's start with a no lag fit, even though the DW for this is going to be terrible:
+
+EUAA_fit_no_lag<- glm(`Auction Price €/tCO2` ~ `Maximum Bid €/tCO2`+
+                                          `Average number of bids per bidder`+
+                                          `Average volume bid per bidder`+
+                                          `Auction Volume tCO2`+
+                                            oil_price+ ftse_price, 
+                 family=gaussian, data=ets_EUAA_only)
+
+summary(EUAA_fit_no_lag)
+durbinWatsonTest(EUAA_fit_no_lag)
+res<- resid(fit_no_lag)
+pacf(res,lag=10, pl=TRUE)
+
+#As expected. Let's run it with the lag:
+
+
+EUAA_ets_first_diff<- ets_EUAA_only|> mutate(
+                  Auction_Price_fd = `Auction Price €/tCO2`- Auction_Price_lag,
+                  Max_bid_fd = `Maximum Bid €/tCO2` - Max_bid_lag,
+                  Avg_bids_fd= `Average number of bids per bidder` - Avg_num_bids_per_bidder_lag,
+                  Avg_vol_fd= `Average volume bid per bidder`- Avg_vol_per_bidder_lag,
+                  Auction_vol_fd = `Auction Volume tCO2`- Auction_vol_lag,
+                  oil_price_fd = oil_price - oil_price_lag,
+                  ftse_price_fd = ftse_price -ftse_price_lag
+) |> select (
+            Auction_Price_fd,
+            Max_bid_fd,
+            Avg_bids_fd,
+            Avg_vol_fd,
+            Auction_vol_fd,
+            oil_price_fd,
+            ftse_price_fd
+)
+EUAA_lag_transformed_fit<- glm(Auction_Price_fd ~ Max_bid_fd+Avg_bids_fd+Avg_vol_fd+
+                            Auction_vol_fd+oil_price_fd+ftse_price_fd, 
+                          family=gaussian(), data=EUAA_ets_first_diff)
+
+summary(EUAA_lag_transformed_fit)
+
+durbinWatsonTest(EUAA_lag_transformed_fit)
+
+#DW is much too high. But the no lag model is fine, so for EUAA, that might be the best model. 
+
+#Note, this isn't the final model, we still need to fit a no intercept model and then adjust the intercept with the means for each data thing. Lets check residuals anyway
+
+res<- resid(EUAA_lag_transformed_fit)
+plot(fitted(EUAA_lag_transformed_fit), res)
+```
+
+#What about partial pooling?
+
+We're going to try just varying intercept first:
+
 
