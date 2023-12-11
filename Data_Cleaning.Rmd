@@ -13,6 +13,7 @@ library(tidyverse)
 library(reshape2)
 library(car)
 library(lubridate)
+library(lme4)
 
 ```
 
@@ -662,7 +663,7 @@ Consider the following approaches:
 Which of the dependent variables do we need to create lags for?:
 PACF time:
 ```{r}
-ets_with_rep_lag<- na.omit(ets_with_rep_lag)
+ets_with_rep_lag<- na.omit(ets_representative_lag)
 pacf(ets_with_rep_lag$`Maximum Bid €/tCO2`)
 pacf(ets_with_rep_lag$`Average number of bids per bidder`)
 pacf(ets_with_rep_lag$`Average volume bid per bidder`)
@@ -674,6 +675,7 @@ pacf(ets_with_rep_lag$`Auction Price €/tCO2`)
 ```
 So pretty much all of them:
 
+
 ```{r}
 #Lags have been created above. So let's run a first differences procedure.
 
@@ -683,6 +685,8 @@ ets_first_diff<- ets_representative_lag |> rename(
                   oil_price= `Europe Brent Spot Price FOB (Dollars per Barrel)`,
                   ftse_price = Price
 )
+
+ets_no_diff<- ets_first_diff
 
 ets_first_diff<-ets_first_diff |> mutate(
                   Auction_Price_fd = `Auction Price €/tCO2`- Auction_Price_lag,
@@ -702,6 +706,19 @@ ets_first_diff<-ets_first_diff |> mutate(
             ftse_price_fd
 )
 
+
+#Lets calculate a fit without lag and examine residuals:
+fit_no_lag<- glm(`Auction Price €/tCO2` ~ `Maximum Bid €/tCO2`+
+                                          `Average number of bids per bidder`+
+                                          `Average volume bid per bidder`+
+                                          `Auction Volume tCO2`+
+                                            oil_price+ ftse_price, 
+                 family=gaussian, data=ets_no_diff)
+
+res<- resid(fit_no_lag)
+pacf(res,lag=10, pl=TRUE)
+
+
 lag_transformed_fit<- glm(Auction_Price_fd ~ Max_bid_fd+Avg_bids_fd+Avg_vol_fd+
                             Auction_vol_fd+oil_price_fd+ftse_price_fd, 
                           family=gaussian(), data=ets_first_diff)
@@ -716,7 +733,12 @@ durbinWatsonTest(lag_transformed_fit)
 
 ```
 
+```{r}
+#no pooling:
 
+#EU_only:
+ets_first_diff |> 
+```
 
 
 
