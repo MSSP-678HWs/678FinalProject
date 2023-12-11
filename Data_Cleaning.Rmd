@@ -230,22 +230,60 @@ PL_only_auction_price<- PL_only_auction$`Auction Price €/tCO2`
 pacf(PL_only_auction_price)
 
 
-lag<- PL_only_auction$`Auction Price €/tCO2`[2:length(PL_only_auction$`Auction Price €/tCO2`)-1]
-lag<- c(0,lag)
-lag[length(lag)]<-0
+#Auction Price Lag
+Auction_Price_lag<- PL_only_auction$`Auction Price €/tCO2`[1:length(PL_only_auction$`Auction Price €/tCO2`)-1]
+Auction_Price_lag<- c(0,Auction_Price_lag)
 PL_only_with_lag<- PL_only_auction |> mutate(
-                                          lag= lag, .after=`Auction Price €/tCO2`
+                                          Auction_Price_lag= Auction_Price_lag, .after=`Auction Price €/tCO2`
 )
 
-PL_only_auction_variables_fit<- glm(`Auction Price €/tCO2`~ lag+ `Auction Volume tCO2`+ `Maximum Bid €/tCO2`,
-                            family=gaussian, data=PL_only_with_lag)
+#Maximum bid lag
+Max_bid_lag<- PL_only_auction$`Maximum Bid €/tCO2`[1:length(PL_only_auction$`Maximum Bid €/tCO2`)-1]
+Max_bid_lag<- c(0,Max_bid_lag)
+PL_only_with_lag<- PL_only_with_lag |> mutate(
+                                          Max_bid_lag= Max_bid_lag, .after=`Maximum Bid €/tCO2`
+)
 
-durbinWatsonTest(PL_only_auction_variables_fit)
-summary(PL_only_auction_variables_fit)
+#Avg bids per bidPLr lag
+Avg_num_bids_per_bidder_lag<- PL_only_auction$`Average number of bids per bidder`[1:length(PL_only_auction$`Average number of bids per bidder`)-1]
+Avg_num_bids_per_bidder_lag<- c(0,Avg_num_bids_per_bidder_lag)
+PL_only_with_lag<- PL_only_with_lag |> mutate(
+                                          Avg_num_bids_per_bidder_lag= Avg_num_bids_per_bidder_lag, .after=`Average number of bids per bidder`
+)
 
-#With oil prices:
+#Avg vol per bidder
+Avg_vol_per_bidder_lag<- PL_only_auction$`Average volume bid per bidder`[1:length(PL_only_auction$`Average volume bid per bidder`)-1]
+Avg_vol_per_bidder_lag<- c(0,Avg_vol_per_bidder_lag)
+PL_only_with_lag<- PL_only_with_lag |> mutate(
+                                          Avg_vol_per_bidder_lag= Avg_vol_per_bidder_lag, .after=`Average volume bid per bidder`
+)
+
+#oil price lag
 PL_only_with_lag<- PL_only_with_lag |> rename(
                         oil_price = `Europe Brent Spot Price FOB (Dollars per Barrel)`
+)
+oil_price_lag<- PL_only_auction$oil_price[1:length(PL_only_auction$oil_price)-1]
+oil_price_lag<- c(0,oil_price_lag)
+PL_only_with_lag<- PL_only_with_lag |> mutate(
+                                          oil_price_lag= oil_price_lag, .after= oil_price
+)
+
+#ftse price lag:
+PL_only_with_lag<- PL_only_with_lag |> rename(
+                        ftse_price = Price
+)
+ftse_price_lag<- PL_only_auction$ftse_price[1:length(PL_only_auction$ftse_price)-1]
+ftse_price_lag<- c(0,ftse_price_lag)
+PL_only_with_lag<- PL_only_with_lag |> mutate(
+                                          ftse_price_lag= ftse_price_lag, .after= ftse_price
+)
+
+#Auction Volume tCO2 lag:
+
+Auction_vol_lag<- PL_only_auction$`Auction Volume tCO2`[1:length(PL_only_auction$`Auction Volume tCO2`)-1]
+Auction_vol_lag<- c(0,Auction_vol_lag)
+PL_only_with_lag<- PL_only_with_lag |> mutate(
+                                          Auction_vol_lag= Auction_vol_lag, .after=`Auction Volume tCO2`
 )
 
 PL_only_oil_fit<- glm(`Auction Price €/tCO2`~ lag+ `Auction Volume tCO2`+ `Maximum Bid €/tCO2`+
