@@ -826,3 +826,8 @@ durbinWatsonTest(partial_pool_fit_intercept_only)
 
 #Force intercept to zero in aboive model
 
+TO DO:
+Interpret all the models. 
+Explain variable picking
+Run predictions for our models
+
