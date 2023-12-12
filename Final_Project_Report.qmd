@@ -684,6 +684,9 @@ We see the results of a simple linear regression. The coefficients for all but f
 However, the Durbin Watson statistic is 1.275 and we see significant autocorrelation. It's easier to see what this means for the model by examining the residual plot:
 
 ```{r}
+#| echo: false
+#| message: false
+#| warning: false
 res<- resid(fit_no_lag)
 plot(fitted(fit_no_lag), res)
 ```
@@ -694,9 +697,13 @@ The next model, where we transform the variables using their respective lags wil
 
 #### Lag Adjusted linear model (Complete pooling):
 
-Here we transform our model variables by subtracting their respective lags from their values:
+Here we transform our model variables by subtracting their respective lags from their values(Note for auction volume we cannot take the log since the lag adjusted values are sometimes negative so I'm scaling here by dividing by 100,000) :
 
 ```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
 ets_complete_pooling_first_diff<- ets_training_data |> mutate(
                   Auction_Price_fd = `Auction Price €/tCO2`- Auction_Price_lag,
                   Max_bid_fd = `Maximum Bid €/tCO2` - Max_bid_lag,
@@ -719,9 +726,15 @@ durbinWatsonTest(complete_pooling_fit_lag_adj)
 
 ```
 
-We can see that this model is much better. We have an acceptable Durbin Watson test statistic now. What about the coefficients?
+We can see that this model is much better. We have an almost acceptable Durbin Watson test statistic now(the exercise of refining this statistic even further is beyond the scope of this paper). Nevertheless we cannot reject the null hypothesis of the test that there is positive autocorrelation. Perhaps our other models will do much better. 
+
+What about the coefficients?
 
 ```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
 summary(complete_pooling_fit_lag_adj)
 
 res<- resid(complete_pooling_fit_lag_adj)
@@ -731,6 +744,9 @@ plot(fitted(complete_pooling_fit_lag_adj),res)+abline(0,0)
 Since the intercept is significant here, we need to adjust it so its consistent with our lags. We re-run the regression without an intercept, calculate the sample means for each of our variables and use the coefficients above, along with those means to calculate the intercept. I.e: $\alpha = \bar{y} - \hat{\beta}_{1}\bar{x}_{1} - \hat{\beta}_{2}\bar{x}_{2}$
 
 ```{r}
+#| echo: false
+#| message: false
+#| warning: false
 
 complete_pooling_fit_lag_adj<- glm(Auction_Price_fd ~ 0+Max_bid_fd +
                                           Avg_bids_fd+
@@ -763,6 +779,10 @@ plot(fitted(complete_pooling_fit_lag_adj),res)+abline(0,0)
 We can see that now, adjusting for lag, only the Maximum bid price is significant. The residuals look much better and seem to be indicative of independent error terms. However they are quite large which means this model might not be the best as far as performance goes. Let's repeat this procedure but leave out oil prices and ftse.
 
 ```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
 complete_pooling_fit_lag_adj_auction_only<- glm(Auction_Price_fd ~ 0+Max_bid_fd +
                                           Avg_bids_fd+
                                           Auction_vol_fd, 
@@ -780,6 +800,10 @@ res<- resid(complete_pooling_fit_lag_adj_auction_only)
 plot(fitted(complete_pooling_fit_lag_adj_auction_only),res)+abline(0,0)
 ```
 
+We can see that the average number of bids per bidder is now significant in the absence of oil prices and FTSE, even if its effect is small. Auction volume still seems to have very little effect on price. The models have very comparable AIC's (differing by a paltry 0.2) so its difficult to conclude which model may better serve us. Perhaps our predictions later shall help us sort that out. 
+
+#### A note on the residuals here:
+
 The residuals are largely as they should be but we still see a *lot of outliers*.
 
 However I would be loathe to leave those out at this juncture simply because for the period of prediction (and for the forseeable future and even conceivably, one could argue for any substantive economic horizon with the volatility we see today) the 'events' that these outliers describe continue to occur if not with any level of frequency. All the same, *I think the influence of these points on our regression is something I would not want to leave out without significant further investigation*.
@@ -793,3 +817,152 @@ Another potential cause of these outliers is that our data actually involves dat
 To deal with these groups in our data, a multi level modelling appraoch was warranted. We will first build no pooling versions of the models above, compare them and then move on to a partial pooling approach. All along the way, we followed the same first differences approach as shown above. In the cases where intercept was not significant we didn't need to follow the process of adjusting it as we did above. 
 
 ### No Pooling Models for each Auction Group
+
+#### Another quick aside: On lags
+Before we get stuck into the weeds with these, it's important to have a quick discussion about lags:
+For the folowing data, lag has to be recalculated and adjusted as we cannot just subset the lags from the entire dataset and have them line up correctly.  
+
+#### Back to regularly scheduled programming: 
+##### EU Auctions:
+
+We will start with the model for the EU Auctions. Again, we adjust our variables with their respective, correct lags. 
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+EU_only<- ets_training_data |> mutate(
+                  Auction_Price_fd = `Auction Price €/tCO2`- Auction_Price_lag,
+                  Max_bid_fd = `Maximum Bid €/tCO2` - Max_bid_lag,
+                  Avg_bids_fd= `Average number of bids per bidder` - Avg_num_bids_per_bidder_lag,
+                  Avg_vol_fd= `Average volume bid per bidder`- Avg_vol_per_bidder_lag,
+                  Auction_vol_fd = `Auction Volume tCO2`- Auction_vol_lag,
+                  oil_price_fd = oil_price - oil_price_lag,
+                  ftse_price_fd = ftse_price -ftse_price_lag
+) |> mutate(
+  Auction_vol_fd = Auction_vol_fd/100000
+) |> filter(AuctionType=="EU")
+
+EU_no_pool_fit<- glm(Auction_Price_fd ~ Max_bid_fd +Avg_bids_fd+
+                          Auction_vol_fd+ oil_price_fd +ftse_price_fd, 
+                 family=gaussian, data=EU_only)
+
+summary(EU_no_pool_fit)
+durbinWatsonTest(EU_no_pool_fit)
+
+
+```
+The intercept is not significant, so we don't need to adjust it here. 
+
+###### The same model without Oil and FTSE:
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+EU_no_pool_fit_auction_only<- glm(Auction_Price_fd ~ Max_bid_fd +Avg_bids_fd+
+                          Auction_vol_fd, 
+                 family=gaussian, data=EU_only)
+
+summary(EU_no_pool_fit_auction_only)
+durbinWatsonTest(EU_no_pool_fit_auction_only)
+```
+
+We can see that we have a better Durbin Watson statistic for both models here and we can reject the null hypothesis that there is autocorrelation. Clearly the First differences procedure does a good job dealing with the autocorrelation in these cases. 
+
+The maximum bid is statistically significant and can be interpreted in the same way as in any other linear regression model. The FTSE index is also statistically significant in the first model.  It's also worth noting that th AIC is much smaller than in our previous models. In fact its close to half the value of the AIC of the other models. We can conclude that we have a much better fit here than in the complete pooling. it's also worth noting that the AIC for the model with oil and FTSE included is noticeably better but perhaps not by a significant amount. Again, we shall look to predictions to help us out. 
+
+Can we say that about all our no pooling models generally? No. We need to run through all of them. 
+
+##### German Auctions(DE):
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+DE_only<- ets_training_data |> mutate(
+                  Auction_Price_fd = `Auction Price €/tCO2`- Auction_Price_lag,
+                  Max_bid_fd = `Maximum Bid €/tCO2` - Max_bid_lag,
+                  Avg_bids_fd= `Average number of bids per bidder` - Avg_num_bids_per_bidder_lag,
+                  Avg_vol_fd= `Average volume bid per bidder`- Avg_vol_per_bidder_lag,
+                  Auction_vol_fd = `Auction Volume tCO2`- Auction_vol_lag,
+                  oil_price_fd = oil_price - oil_price_lag,
+                  ftse_price_fd = ftse_price -ftse_price_lag
+) |> mutate(
+  Auction_vol_fd = Auction_vol_fd/100000
+) |> filter(AuctionType=="DE")
+
+DE_no_pool_fit<- glm(Auction_Price_fd ~ Max_bid_fd +Avg_bids_fd+
+                          Auction_vol_fd+ oil_price_fd +ftse_price_fd, 
+                 family=gaussian, data=DE_only)
+
+summary(DE_no_pool_fit)
+durbinWatsonTest(DE_no_pool_fit)
+
+
+```
+###### The same model without Oil and FTSE:
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+DE_no_pool_fit_auction_only<- glm(Auction_Price_fd ~ Max_bid_fd +Avg_bids_fd+
+                          Auction_vol_fd, 
+                 family=gaussian, data=DE_only)
+
+summary(DE_no_pool_fit_auction_only)
+durbinWatsonTest(DE_no_pool_fit_auction_only)
+
+```
+Our DW Test statistics aren't looking so good for these models although the AIC is much much better than for the previous models. This may also be because the sample size is much smaller for these auctions. 
+
+##### Polish Auctions (PL):
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+PL_only<- ets_training_data |> mutate(
+                  Auction_Price_fd = `Auction Price €/tCO2`- Auction_Price_lag,
+                  Max_bid_fd = `Maximum Bid €/tCO2` - Max_bid_lag,
+                  Avg_bids_fd= `Average number of bids per bidder` - Avg_num_bids_per_bidder_lag,
+                  Avg_vol_fd= `Average volume bid per bidder`- Avg_vol_per_bidder_lag,
+                  Auction_vol_fd = `Auction Volume tCO2`- Auction_vol_lag,
+                  oil_price_fd = oil_price - oil_price_lag,
+                  ftse_price_fd = ftse_price -ftse_price_lag
+) |> mutate(
+  Auction_vol_fd = Auction_vol_fd/100000
+) |> filter(AuctionType=="PL")
+
+PL_no_pool_fit<- glm(Auction_Price_fd ~ Max_bid_fd +Avg_bids_fd+
+                          Auction_vol_fd+ oil_price_fd +ftse_price_fd, 
+                 family=gaussian, data=PL_only)
+
+summary(PL_no_pool_fit)
+durbinWatsonTest(PL_no_pool_fit)
+
+
+```
+###### The same model without Oil and FTSE:
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+PL_no_pool_fit_auction_only<- glm(Auction_Price_fd ~ Max_bid_fd +Avg_bids_fd+
+                          Auction_vol_fd, 
+                 family=gaussian, data=PL_only)
+
+summary(PL_no_pool_fit_auction_only)
+durbinWatsonTest(PL_no_pool_fit_auction_only)
+
+```
+The DW statistics here have gone too far the other way, with us now not being able to reject the null hypothesis that there is no negative autocorrelation. While our lag adjusted First Differences procedure worked really well for the EU auctions, it seems to be less effective here, likely because more sophisticated techniques for dealing with the time series are required of these small subsets of our data. Nevertheless this is an important finding. 
+
+##### EUAA Auctions:
+
