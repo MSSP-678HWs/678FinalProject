@@ -488,6 +488,20 @@ ets_first_diff<- ets_representative_lag |> rename(
 #Maintaining a version of the data to use for EDA:
 ets_modeling_data<- ets_first_diff
 
+#We also need to add overall lags for oil and ftse prices that make more sense in the final model:
+
+oil_price_lag_overall<- ets_modeling_data$oil_price[1:length(ets_modeling_data$oil_price)-1]
+oil_price_lag_overall<- c(0,oil_price_lag_overall)
+ets_modeling_data<- ets_modeling_data |> mutate(
+                oil_price_lag_overall= oil_price_lag_overall
+)
+
+ftse_price_lag_overall<- ets_modeling_data$ftse_price[1:length(ets_modeling_data$ftse_price)-1]
+ftse_price_lag_overall<- c(0,ftse_price_lag_overall)
+ets_modeling_data<- ets_modeling_data |> mutate(
+                ftse_price_lag_overall= ftse_price_lag_overall
+)
+
 ets_first_diff<-ets_first_diff |> mutate(
                   Auction_Price_fd = `Auction Price €/tCO2`- Auction_Price_lag,
                   Max_bid_fd = `Maximum Bid €/tCO2` - Max_bid_lag,
@@ -543,7 +557,7 @@ We can see from the figure below that FTSE and especially Oil Prices move really
 
 suppressWarnings(
   ggplot(data=ets_modeling_data, aes(x=Date))+ geom_line(aes(y=oil_prices, color = 'Oil Prices'))+ geom_line(aes(y=`Auction Price €/tCO2`, color = 'Auction Prices' ))+geom_line(aes(y=ftse_price/100, color ='FTSE/100' ))+
-          ggtitle("Auction Price, FTSE and Oil Price against Time")+
+          ggtitle("Graph 1: Auction Price, FTSE and Oil Price against Time")+
           xlab("Date")+ylab('Price/Index Value')+
     scale_color_manual(name = "Variables",values = c('#581845','#FFC300','#E13F35'))
   )
@@ -554,7 +568,7 @@ suppressWarnings(
 To further narrow down which variables we might use, correlation matrices were created and highly correlated predictors were eliminated. Similarly, we want variables that are at least a little well correlated with the outcome variable (Auction Price). Eliminating the variables that are highly correlated or which might not be meaningful predictors at least as far as interpretation is concerned, we get:
 
 ```{r}
-eu_cor_frame<- ets_modeling_data |> select(`Auction Volume tCO2`, `Maximum Bid €/tCO2`,`Average volume bid per bidder`,
+eu_cor_frame<- ets_modeling_data |> select(`Auction Price €/tCO2`,`Auction Volume tCO2`, `Maximum Bid €/tCO2`,`Average number of bids per bidder`,
                                     oil_price, ftse_price) 
 
 eu_cor_frame<- na.omit(eu_cor_frame)
@@ -565,6 +579,46 @@ cor_matrix
 ```
 We can see that between these four predictors of Auction price, we have pretty strong correlations. The correlations between predictors is a little bit stronger than we would like it to be but not enough to be problematic for our regression. Unfortunately, with economic data like this, its not going to be possible to find data with significantly lower correlations, especially with such measures as oil price and ftse price included. Nevertheless we shall explore below whether leaving those factors out gives us a better or worse model. 
 
+Another consideration before we move on: The scale of the data above varies. We already had to transform the price of the FTSE 100 index in the graph above by dividing it by 100 to display it on the same scale as crude oil prices and CO2 allowance auction prices. Auction Volume is in the millions, average volume per bidder is in the hundreds of thousands while number of bids per bidder is in single digits. So we log those variables that are on a much larger scale. 
+
 ### The Time Series Dimension
 
-One of the first things that would have jumped out of the 
+Graph 1 above might have given you pause and made you think "Hold on, doesn't this look awfully like time series data?". That's because it does, and it is and that poses a problem in as much as time series data, being autocorrelated violates the condition of independence of errors for simple linear regression and OLS estimates. We can see the time series structure of the data in the graphs below and will discuss how to handle that. 
+
+```{r}
+ets_modeling_data<- na.omit(ets_modeling_data)
+pacf(ets_modeling_data$`Auction Price €/tCO2`,lag=10, pl=TRUE, main="Graph 2 :
+     Partial Autocorrelation for Auction Price €/tCO2")
+
+pacf(ets_modeling_data$oil_price,lag=10, pl=TRUE, main="Graph 3 :
+     Partial Autocorrelation for Price of Brent Crude Spot Price $/barrel")
+
+pacf(ets_modeling_data$ftse_price,lag=10, pl=TRUE, main="Graph 4 :
+     Partial Autocorrelation for FTSE-100")
+
+```
+All these variables have an AR(1) structure which is relatively typical of a lot of economic data. In order to model these appropriately, I added lag columns for our variables in the data(the code for this is in the appendix) and a first differences approach in the models below should help bring the Durbin Watson Statistic to acceptable levels. A first differences procedure is being used here because the literature I read indicates that for economic data the $\rho$ for AR(1) structures is generally high and First differences procedure is appropriate.(Penn State Applied Regression Analysis 10.3 - Regression with Autoregressive Errors: https://online.stat.psu.edu/stat462/node/189/). 
+
+#### A little aside
+Some of the auction data such as auction volume and number of bids per bidder have autoregression structures that are not as straightforward.  
+
+```{r}
+pacf(ets_modeling_data$`Average number of bids per bidder`, lag=10, pl=TRUE, main= "Graph 5:
+     Partial Autocorrelation in \naverage number of bids per bidder")
+pacf(ets_modeling_data$`Auction Volume tCO2`, lag = 10, pl = TRUE, main = "Graph 6: 
+     Partial Autocorrelation in \nAverage volume in tons of CO2")
+```
+However, introducing a lag brings the level of the partial autocorrelation down to levels which are much more acceptable for this model, as we can glean from the graphs below.
+
+Strictly speaking, we still have autocorrelation in multiple points above the level of significance and more advanced methods would need to be used to deal with this and would certainly contribute to a better performance of the models presented later in this paper.Unfortunately, that is beyond the scope of this project and is something to be left for future work.
+```{r}
+pacf(ets_modeling_data$`Average number of bids per bidder`- ets_modeling_data$Avg_num_bids_per_bidder_lag,
+               lag=10, pl=TRUE, main= "Graph 7:
+     Partial Autocorrelation in lag adjusted average number of bids per bidder")
+pacf(ets_modeling_data$`Auction Volume tCO2`- ets_modeling_data$Auction_vol_lag,
+lag = 10, pl = TRUE, main = "Graph 8: 
+     Partial Autocorrelation in lag adjusted Average volume in tons of CO2")
+```
+
+
+
