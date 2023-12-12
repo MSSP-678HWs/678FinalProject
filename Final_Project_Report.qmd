@@ -597,7 +597,10 @@ pacf(ets_modeling_data$ftse_price,lag=10, pl=TRUE, main="Graph 4 :
      Partial Autocorrelation for FTSE-100")
 
 ```
-All these variables have an AR(1) structure which is relatively typical of a lot of economic data. In order to model these appropriately, I added lag columns for our variables in the data(the code for this is in the appendix) and a first differences approach in the models below should help bring the Durbin Watson Statistic to acceptable levels. A first differences procedure is being used here because the literature I read indicates that for economic data the $\rho$ for AR(1) structures is generally high and First differences procedure is appropriate.(Penn State Applied Regression Analysis 10.3 - Regression with Autoregressive Errors: https://online.stat.psu.edu/stat462/node/189/). 
+
+All these variables have an AR(1) structure which is relatively typical of a lot of economic data. In order to model these appropriately, I added lag columns for our variables in the data(the code for this is in the appendix) and a first differences approach in the models below should help bring the Durbin Watson Statistic to acceptable levels. I will point these out as we go in the discussion of the models. 
+
+A first differences procedure is being used here because the literature I read indicates that for economic data the $\rho$ for AR(1) structures is generally high and First differences procedure is appropriate.(Penn State Applied Regression Analysis 10.3 - Regression with Autoregressive Errors: https://online.stat.psu.edu/stat462/node/189/). 
 
 #### A little aside
 Some of the auction data such as auction volume and number of bids per bidder have autoregression structures that are not as straightforward.  
