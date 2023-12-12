@@ -645,6 +645,8 @@ In this section we examine a number of models of auction price. We'll start with
 
 We are going to evaluate the performance of these models in the next section of this paper by using the coefficients to predict Auction prices. Therefore we will divide the dataset so we get an 80-20 split for training-prediction. The following models are trained on that initial 80% which goes up to July 8th 2022. All the auctions following that date will constitute our prediction dataset.
 
+We evaluate two models at each step: The first including auction variables and oil and FTSE prices. The second including only auction variables. 
+
 ### A simple linear regression:
 
 The first model we run will be a simple linear regression, however, just to demonstrate the handling of time-series here we are going to run one regression without adjusting our variables by their lags and display the Durbin Watson statistic for that to demonstrate just how untenable a basic model is. Then we will adjust the variables using the first differences procedure.
@@ -947,6 +949,7 @@ durbinWatsonTest(PL_no_pool_fit)
 
 
 ```
+
 ###### The same model without Oil and FTSE:
 
 ```{r}
@@ -965,4 +968,58 @@ durbinWatsonTest(PL_no_pool_fit_auction_only)
 The DW statistics here have gone too far the other way, with us now not being able to reject the null hypothesis that there is no negative autocorrelation. While our lag adjusted First Differences procedure worked really well for the EU auctions, it seems to be less effective here, likely because more sophisticated techniques for dealing with the time series are required of these small subsets of our data. Nevertheless this is an important finding. 
 
 ##### EUAA Auctions:
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+EUAA_only<- ets_training_data |> mutate(
+                  Auction_Price_fd = `Auction Price €/tCO2`- Auction_Price_lag,
+                  Max_bid_fd = `Maximum Bid €/tCO2` - Max_bid_lag,
+                  Avg_bids_fd= `Average number of bids per bidder` - Avg_num_bids_per_bidder_lag,
+                  Avg_vol_fd= `Average volume bid per bidder`- Avg_vol_per_bidder_lag,
+                  Auction_vol_fd = `Auction Volume tCO2`- Auction_vol_lag,
+                  oil_price_fd = oil_price - oil_price_lag,
+                  ftse_price_fd = ftse_price -ftse_price_lag
+) |> mutate(
+  Auction_vol_fd = Auction_vol_fd/100000
+) |> filter(AuctionType=="EUAA")
+
+EUAA_no_pool_fit<- glm(Auction_Price_fd ~ Max_bid_fd +Avg_bids_fd+
+                          Auction_vol_fd+ oil_price_fd +ftse_price_fd, 
+                 family=gaussian, data=EUAA_only)
+
+summary(EUAA_no_pool_fit)
+durbinWatsonTest(EUAA_no_pool_fit)
+
+
+```
+
+###### The same model without Oil and FTSE:
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+EUAA_no_pool_fit_auction_only<- glm(Auction_Price_fd ~ Max_bid_fd +Avg_bids_fd+
+                          Auction_vol_fd, 
+                 family=gaussian, data=EUAA_only)
+
+summary(EUAA_no_pool_fit_auction_only)
+durbinWatsonTest(EUAA_no_pool_fit_auction_only)
+
+```
+These mdoels too, suffer from the same issues as for poland and Germany. 
+
+Perhaps our two Partial Pooling models (with oil and ftse and without them) can do better.
+
+### Partial Pooling Models:
+
+
+
+
+
+
 
