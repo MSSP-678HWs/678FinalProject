@@ -52,7 +52,7 @@ auction_and_oil<- merge(x=eu_ets_data,y=brent_crude_prices,
 auction_and_oil<-auction_and_oil |> filter(is.na(auction_and_oil$`Europe Brent Spot Price FOB (Dollars per Barrel)`)==FALSE)
 
 oil_prices<- auction_and_oil$`Europe Brent Spot Price FOB (Dollars per Barrel)`
-pacf(oil_prices, lag=10, pl=TRUE)
+#pacf(oil_prices, lag=10, pl=TRUE)
 
 ets_stock_and_oil_data<- merge(x=auction_and_oil, y= ftse, by='Date', all.x=TRUE)
 ```
@@ -81,7 +81,7 @@ EU_only_auction<- ets_stock_and_oil_data |> filter(AuctionType=="EU") |> filter(
 )
 eu_only_auction_price<-EU_only_auction$`Auction Price €/tCO2`
 
-pacf(eu_only_auction_price, lag=10, pl=TRUE)
+#pacf(eu_only_auction_price, lag=10, pl=TRUE)
 
 #Auction Price Lag
 Auction_Price_lag<- EU_only_auction$`Auction Price €/tCO2`[1:length(EU_only_auction$`Auction Price €/tCO2`)-1]
@@ -145,7 +145,7 @@ DE_only_auction<-ets_stock_and_oil_data |> filter(AuctionType=="DE") |> filter(
                                           is.na(`Auction Price €/tCO2`)==FALSE
 )
 DE_only_auction_price<- DE_only_auction$`Auction Price €/tCO2`
-pacf(DE_only_auction_price)
+#pacf(DE_only_auction_price)
 
 
 #Auction Price Lag
@@ -209,7 +209,7 @@ PL_only_auction<-ets_stock_and_oil_data |> filter(AuctionType=="PL") |> filter(
                                           is.na(`Auction Price €/tCO2`)==FALSE
 )
 PL_only_auction_price<- PL_only_auction$`Auction Price €/tCO2`
-pacf(PL_only_auction_price)
+#pacf(PL_only_auction_price)
 
 
 #Auction Price Lag
@@ -273,7 +273,7 @@ EUAA_only_auction<-ets_stock_and_oil_data |> filter(AuctionType=="EUAA") |> filt
                                           is.na(`Auction Price €/tCO2`)==FALSE
 )
 EUAA_only_auction_price<- EUAA_only_auction$`Auction Price €/tCO2`
-pacf(EUAA_only_auction_price)
+#pacf(EUAA_only_auction_price)
 
 
 #Auction Price Lag
@@ -519,9 +519,7 @@ The EU Cap and Trade system allows industrial placements, corporations and other
 
 ## Data - Sources and Initial Analysis:
 
-The EU Emissions Trading System data I've used here comes from the website of the EEX (European Energy Exchange), the exchange licensed to run these auctions. The data goes back to 2017. In addition, data for the European Price of Brent Crude Oil per barrel was added, both as a measure of the prevailing price environment but also as an economic measure of costs for the installations and corporations covered by the Cap and Trade Regulation.
-
-The value of the FTSE 100 index was added as further predictor(while Brexit has been an ongoing 'thing' since before the start of the time frame examined in this analysis, the LSE has mostly remained the largest European Exchange and the FTSE probably the best reflection of business performance across the pond.)
+The EU Emissions Trading System data I've used here comes from the website of the EEX (European Energy Exchange), the exchange licensed to run these auctions. The data goes back to 2017. 
 
 A quick examination of the EU ETS(EU Emissions Trading System) data reveals that some metrics are naturally more appropriate to use in an analysis of this nature, especially considering the aims of this analysis are twofold:
 
@@ -532,6 +530,41 @@ A quick examination of the EU ETS(EU Emissions Trading System) data reveals that
 
 \*The other goal of this analysis is to see how economic performance for corporations affects CO2 allowance prices and whether this is at all reflective of incentives to reduce emissions.
 
-To further narrow down which variables we might use, correlation matrices were created and highly correlated predictors were eliminated. Similarly, we want variables that are at least a little well correlated with the outcome variable (Auction Price) so as to 
+To address the second goal of this analysis, data for the European Price of Brent Crude Oil per barrel was added, both as a measure of the prevailing price environment but also as an economic measure of costs for the installations and corporations covered by the Cap and Trade Regulation.
 
-### The Time Series Dimension.
+The value of the FTSE 100 index was added as further predictor(while Brexit has been an ongoing 'thing' since before the start of the time frame examined in this analysis, the LSE has mostly remained the largest European Exchange and the FTSE probably the best reflection of business performance across the pond). 
+
+We can see from the figure below that FTSE and especially Oil Prices move really well with CO2 allowance Auction Prices and might therefore serve as good determinants of that price. They should also help inform how other auction variables such as volume and average bid size affect auction price controlling for macroeconomic effects
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+suppressWarnings(
+  ggplot(data=ets_modeling_data, aes(x=Date))+ geom_line(aes(y=oil_prices, color = 'Oil Prices'))+ geom_line(aes(y=`Auction Price €/tCO2`, color = 'Auction Prices' ))+geom_line(aes(y=ftse_price/100, color ='FTSE/100' ))+
+          ggtitle("Auction Price, FTSE and Oil Price against Time")+
+          xlab("Date")+ylab('Price/Index Value')+
+    scale_color_manual(name = "Variables",values = c('#581845','#FFC300','#E13F35'))
+  )
+            
+```
+
+
+To further narrow down which variables we might use, correlation matrices were created and highly correlated predictors were eliminated. Similarly, we want variables that are at least a little well correlated with the outcome variable (Auction Price). Eliminating the variables that are highly correlated or which might not be meaningful predictors at least as far as interpretation is concerned, we get:
+
+```{r}
+eu_cor_frame<- ets_modeling_data |> select(`Auction Volume tCO2`, `Maximum Bid €/tCO2`,`Average volume bid per bidder`,
+                                    oil_price, ftse_price) 
+
+eu_cor_frame<- na.omit(eu_cor_frame)
+cor_matrix<- cor(eu_cor_frame)
+
+cor_matrix
+
+```
+We can see that between these four predictors of Auction price, we have pretty strong correlations. The correlations between predictors is a little bit stronger than we would like it to be but not enough to be problematic for our regression. Unfortunately, with economic data like this, its not going to be possible to find data with significantly lower correlations, especially with such measures as oil price and ftse price included. Nevertheless we shall explore below whether leaving those factors out gives us a better or worse model. 
+
+### The Time Series Dimension
+
+One of the first things that would have jumped out of the 
