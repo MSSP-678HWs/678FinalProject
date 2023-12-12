@@ -680,5 +680,82 @@ durbinWatsonTest(fit_no_lag)
 ```
 We see the results of a simple linear regression. The coefficients for all but ftse price are significant and can be interpreted pretty easily. For a  difference in Maximum bid price of 1 euro the auction price is higher by 0.87 euros. Since ftse price is transformed by dividing by a hundred, we can interpret that coefficient by saying for a hundred point difference in FTSE the auction price of CO2 allowances is 0.03 euros higher. For the log auction volume variable: For a difference in auction volume of 1%, the Auction price for CO2 allowances per ton is 0.0129 euros lower. 
 
-However, the Durbin Watson statistic is 1.275 and we see significant autocorrelation. The next model, where we transform the variables using their respective lags
+However, the Durbin Watson statistic is 1.275 and we see significant autocorrelation. It's easier to see what this means for the model by examining the residual plot:
+
+```{r}
+res<- resid(fit_no_lag)
+plot(fitted(fit_no_lag), res)
+```
+It's very easy to see that this residual structure is not acceptable at all - that's because autocorrelation violates a fundamental assumption of linear models - that of independence of errors.
+
+The next model, where we transform the variables using their respective lags will avoid this issue. 
+
+### Lag Adjusted linear model (Complete pooling):
+Here we transform our model variables by subtracting their respective lags from their values:
+
+```{r}
+ets_complete_pooling_first_diff<- ets_training_data |> mutate(
+                  Auction_Price_fd = `Auction Price €/tCO2`- Auction_Price_lag,
+                  Max_bid_fd = `Maximum Bid €/tCO2` - Max_bid_lag,
+                  Avg_bids_fd= `Average number of bids per bidder` - Avg_num_bids_per_bidder_lag,
+                  Avg_vol_fd= `Average volume bid per bidder`- Avg_vol_per_bidder_lag,
+                  Auction_vol_fd = `Auction Volume tCO2`- Auction_vol_lag,
+                  oil_price_fd = oil_price - oil_price_lag_overall,
+                  ftse_price_fd = ftse_price -ftse_price_lag_overall
+) |> mutate(
+  Auction_vol_fd = Auction_vol_fd/100000
+)
+
+complete_pooling_fit_lag_adj<- glm(Auction_Price_fd ~ Max_bid_fd +
+                                          Avg_bids_fd+
+                                          Auction_vol_fd+
+                                            oil_price_fd+ ftse_price_fd, 
+                 family=gaussian, data=ets_complete_pooling_first_diff)
+
+durbinWatsonTest(complete_pooling_fit_lag_adj)
+
+```
+
+We can see that this model is much better. We have an acceptable durbin watson test statistic now. What about the coefficients?
+
+```{r}
+summary(complete_pooling_fit_lag_adj)
+
+res<- resid(complete_pooling_fit_lag_adj)
+plot(fitted(complete_pooling_fit_lag_adj),res)+abline(0,0)
+```
+Since the intercept is significant here, we need to adjust it so its consistent with our lags. We re-run the regression without an intercept, calculate the sample means for each of our variables and use the coefficients above, along with those means to calculate the intercept. I.e: $\alpha = \bar{y} - \hat{\beta}_{1}\bar{x}_{1} - \hat{\beta}_{2}\bar{x}_{2}$
+```{r}
+
+complete_pooling_fit_lag_adj<- glm(Auction_Price_fd ~ 0+Max_bid_fd +
+                                          Avg_bids_fd+
+                                          Auction_vol_fd+
+                                            oil_price_fd+ ftse_price_fd, 
+                 family=gaussian, data=ets_complete_pooling_first_diff)
+
+summary(complete_pooling_fit_lag_adj)
+
+ets_complete_pooling_first_diff_a<- na.omit(ets_complete_pooling_first_diff)
+ets_complete_pooling_first_diff_a<-ets_complete_pooling_first_diff_a |> summarize(
+                    Auction_price_mean = mean(Auction_Price_fd),
+                    Max_bid_mean = mean(Max_bid_fd),
+                    Avg_bids_mean = mean(Avg_bids_fd),
+                    Auction_vol_mean = mean(Auction_vol_fd),
+                    oil_price_mean = mean(oil_price_fd),
+                    ftse_price_mean = mean(ftse_price_fd)
+)
+
+
+new_intercept <- ets_complete_pooling_first_diff_a$Auction_price_mean - 0.241194*ets_complete_pooling_first_diff_a$Max_bid_mean - 0.166298*ets_complete_pooling_first_diff_a$Avg_bids_mean +0.005693*ets_complete_pooling_first_diff_a$Auction_vol_mean - 0.011642*ets_complete_pooling_first_diff_a$oil_price_mean -0.048955*ets_complete_pooling_first_diff_a$ftse_price_mean
+
+print("Intercept:")
+new_intercept
+
+res<- resid(complete_pooling_fit_lag_adj)
+plot(fitted(complete_pooling_fit_lag_adj),res)+abline(0,0)
+```
+
+We can see that now, adjusting for lag, only the Maximum bid price is significant. The residuals look much better and seem to be indicative of independent error terms. However they are quite large which means this model might not be the best as far as performance goes. 
+
+Let's repeat this procedure with
 
