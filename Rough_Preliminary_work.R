@@ -21,6 +21,7 @@ co2_emissions_data<-read.csv("co2_emission.csv")
 emissions<- co2_emissions_data$value
 
 pacf(emissions, lag=20, pl=TRUE)
+acf(emissions, lag=365, pl=TRUE)
 
 #This doesn't look so great. 
 #Graphing CO2 Emissions
@@ -147,9 +148,13 @@ ets_with_auction_lag<- ets_stock_and_oil_data |> mutate(
                                           lag= lag, .after=`Auction Price €/tCO2`
 )
 
-auction_variables_fit<- glm(`Auction Price €/tCO2`~lag+`Auction Volume tCO2`+ `Average bid size`,
+ets_stock_and_oil_data<- ets_stock_and_oil_data |> rename(
+  oil_price = `Europe Brent Spot Price FOB (Dollars per Barrel)`
+)
+auction_variables_fit<- glm(`Auction Price €/tCO2`~lag+`Auction Volume tCO2`+ `Maximum Bid €/tCO2`+
+                              oil_price,
                             family=gaussian, data=ets_stock_and_oil_data)
 
 durbinWatsonTest(auction_variables_fit)
 
-#So this seems good enough
+

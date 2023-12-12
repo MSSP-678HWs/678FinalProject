@@ -1,0 +1,13 @@
+---
+title: "678 Final Project Report"
+subtitle: "Predicting Auction price for CO2 Allowances under EU Cap and Trade"
+author: "Ajay Krishnakumar"
+format: pdf
+editor: visual
+---
+
+## Abstract
+
+The EU Cap and Trade system allows industrial placements, corporations and other eligible participants to auction off or purchase CO2 emissions allowances in the event of their having excess allowances or needing more allowances to avoid breaching their cap. This report endevors to look at variables dictating the auctions themselves and outside factors to predict the auction price and to establish to some extent whether booming business and industry relates to premiums on continued emissions of CO2 equivalents as measured by auction price.
+
+## Introduction
