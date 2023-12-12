@@ -5,6 +5,507 @@ author: "Ajay Krishnakumar"
 format: pdf
 editor: visual
 ---
+```{r}
+#| echo: false
+#| message: false
+knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+library(tseries)
+library(ggplot2)
+library(tidyverse)
+library(reshape2)
+library(car)
+library(lubridate)
+library(lme4)
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| output: false
+#Reading in the documents I need:
+brent_crude_prices<- read_excel("brent_crude_prices.xlsx")
+co2_emissions_data<-read.csv("co2_emission.csv")
+ftse<- read.csv("FTSE 100 Historical Data.csv")
+eu_ets_data<-read_excel("EU-ETS-data.xlsx")
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| output: false
+#Converting dates to the right format so I can join them:
+eu_ets_data$Date<- as.Date(eu_ets_data$Date)
+brent_crude_prices$Date<- as.Date(brent_crude_prices$Date)
+ftse$Date<- mdy(ftse$Date)
+ftse$Price<- as.numeric(str_replace(ftse$Price,",",""))
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| output: false
+#Joining the three data frames:
+auction_and_oil<- merge(x=eu_ets_data,y=brent_crude_prices, 
+                         by="Date", all.x=TRUE) 
+
+auction_and_oil<-auction_and_oil |> filter(is.na(auction_and_oil$`Europe Brent Spot Price FOB (Dollars per Barrel)`)==FALSE)
+
+oil_prices<- auction_and_oil$`Europe Brent Spot Price FOB (Dollars per Barrel)`
+pacf(oil_prices, lag=10, pl=TRUE)
+
+ets_stock_and_oil_data<- merge(x=auction_and_oil, y= ftse, by='Date', all.x=TRUE)
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| output: false
+#First let's change auction name to just have EU, DE, PL or EUAA:
+
+ets_stock_and_oil_data<- ets_stock_and_oil_data |> mutate(
+                AuctionType = ifelse(str_detect(`Auction Name`, "EUAA")==TRUE,
+                                                                        "EUAA",
+                                                    str_sub(`Auction Name`,-2,)
+), .after=`Auction Name`)
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| output: false
+
+#Setting up lags, starting with EU_only_auction:
+EU_only_auction<- ets_stock_and_oil_data |> filter(AuctionType=="EU") |> filter(
+                                          is.na(`Auction Price €/tCO2`)==FALSE
+)
+eu_only_auction_price<-EU_only_auction$`Auction Price €/tCO2`
+
+pacf(eu_only_auction_price, lag=10, pl=TRUE)
+
+#Auction Price Lag
+Auction_Price_lag<- EU_only_auction$`Auction Price €/tCO2`[1:length(EU_only_auction$`Auction Price €/tCO2`)-1]
+Auction_Price_lag<- c(0,Auction_Price_lag)
+EU_only_with_lag<- EU_only_auction |> mutate(
+                                          Auction_Price_lag= Auction_Price_lag, .after=`Auction Price €/tCO2`
+)
+
+#Maximum bid lag
+Max_bid_lag<- EU_only_auction$`Maximum Bid €/tCO2`[1:length(EU_only_auction$`Maximum Bid €/tCO2`)-1]
+Max_bid_lag<- c(0,Max_bid_lag)
+EU_only_with_lag<- EU_only_with_lag |> mutate(
+                                          Max_bid_lag= Max_bid_lag, .after=`Maximum Bid €/tCO2`
+)
+
+#Avg bids per bidder lag
+Avg_num_bids_per_bidder_lag<- EU_only_auction$`Average number of bids per bidder`[1:length(EU_only_auction$`Average number of bids per bidder`)-1]
+Avg_num_bids_per_bidder_lag<- c(0,Avg_num_bids_per_bidder_lag)
+EU_only_with_lag<- EU_only_with_lag |> mutate(
+                                          Avg_num_bids_per_bidder_lag= Avg_num_bids_per_bidder_lag, .after=`Average number of bids per bidder`
+)
+
+#Avg vol per bidder
+Avg_vol_per_bidder_lag<- EU_only_auction$`Average volume bid per bidder`[1:length(EU_only_auction$`Average volume bid per bidder`)-1]
+Avg_vol_per_bidder_lag<- c(0,Avg_vol_per_bidder_lag)
+EU_only_with_lag<- EU_only_with_lag |> mutate(
+                                          Avg_vol_per_bidder_lag= Avg_vol_per_bidder_lag, .after=`Average volume bid per bidder`
+)
+
+#oil price lag
+EU_only_with_lag<- EU_only_with_lag |> rename(
+                        oil_price = `Europe Brent Spot Price FOB (Dollars per Barrel)`
+)
+oil_price_lag<- EU_only_with_lag$oil_price[1:length(EU_only_with_lag$oil_price)-1]
+oil_price_lag<- c(0,oil_price_lag)
+EU_only_with_lag<- EU_only_with_lag |> mutate(
+                                          oil_price_lag= oil_price_lag, .after= oil_price
+)
+
+#ftse price lag:
+EU_only_with_lag<- EU_only_with_lag |> rename(
+                        ftse_price = Price
+)
+ftse_price_lag<- EU_only_with_lag$ftse_price[1:length(EU_only_with_lag$ftse_price)-1]
+ftse_price_lag<- c(0,ftse_price_lag)
+EU_only_with_lag<- EU_only_with_lag |> mutate(
+                                          ftse_price_lag= ftse_price_lag, .after= ftse_price
+)
+
+#Auction Volume tCO2 lag:
+
+Auction_vol_lag<- EU_only_auction$`Auction Volume tCO2`[1:length(EU_only_auction$`Auction Volume tCO2`)-1]
+Auction_vol_lag<- c(0,Auction_vol_lag)
+EU_only_with_lag<- EU_only_with_lag |> mutate(
+                                          Auction_vol_lag= Auction_vol_lag, .after=`Auction Volume tCO2`
+)
+```
+```{r}
+#Setting up lag for German Auctions
+DE_only_auction<-ets_stock_and_oil_data |> filter(AuctionType=="DE") |> filter(
+                                          is.na(`Auction Price €/tCO2`)==FALSE
+)
+DE_only_auction_price<- DE_only_auction$`Auction Price €/tCO2`
+pacf(DE_only_auction_price)
+
+
+#Auction Price Lag
+Auction_Price_lag<- DE_only_auction$`Auction Price €/tCO2`[1:length(DE_only_auction$`Auction Price €/tCO2`)-1]
+Auction_Price_lag<- c(0,Auction_Price_lag)
+DE_only_with_lag<- DE_only_auction |> mutate(
+                                          Auction_Price_lag= Auction_Price_lag, .after=`Auction Price €/tCO2`
+)
+
+#Maximum bid lag
+Max_bid_lag<- DE_only_auction$`Maximum Bid €/tCO2`[1:length(DE_only_auction$`Maximum Bid €/tCO2`)-1]
+Max_bid_lag<- c(0,Max_bid_lag)
+DE_only_with_lag<- DE_only_with_lag |> mutate(
+                                          Max_bid_lag= Max_bid_lag, .after=`Maximum Bid €/tCO2`
+)
+
+#Avg bids per bidder lag
+Avg_num_bids_per_bidder_lag<- DE_only_auction$`Average number of bids per bidder`[1:length(DE_only_auction$`Average number of bids per bidder`)-1]
+Avg_num_bids_per_bidder_lag<- c(0,Avg_num_bids_per_bidder_lag)
+DE_only_with_lag<- DE_only_with_lag |> mutate(
+                                          Avg_num_bids_per_bidder_lag= Avg_num_bids_per_bidder_lag, .after=`Average number of bids per bidder`
+)
+
+#Avg vol per bidder
+Avg_vol_per_bidder_lag<- DE_only_auction$`Average volume bid per bidder`[1:length(DE_only_auction$`Average volume bid per bidder`)-1]
+Avg_vol_per_bidder_lag<- c(0,Avg_vol_per_bidder_lag)
+DE_only_with_lag<- DE_only_with_lag |> mutate(
+                                          Avg_vol_per_bidder_lag= Avg_vol_per_bidder_lag, .after=`Average volume bid per bidder`
+)
+
+#oil price lag
+DE_only_with_lag<- DE_only_with_lag |> rename(
+                        oil_price = `Europe Brent Spot Price FOB (Dollars per Barrel)`
+)
+oil_price_lag<- DE_only_with_lag$oil_price[1:length(DE_only_with_lag$oil_price)-1]
+oil_price_lag<- c(0,oil_price_lag)
+DE_only_with_lag<- DE_only_with_lag |> mutate(
+                                          oil_price_lag= oil_price_lag, .after= oil_price
+)
+
+#ftse price lag:
+DE_only_with_lag<- DE_only_with_lag |> rename(
+                        ftse_price = Price
+)
+ftse_price_lag<- DE_only_with_lag$ftse_price[1:length(DE_only_with_lag$ftse_price)-1]
+ftse_price_lag<- c(0,ftse_price_lag)
+DE_only_with_lag<- DE_only_with_lag |> mutate(
+                                          ftse_price_lag= ftse_price_lag, .after= ftse_price
+)
+
+#Auction Volume tCO2 lag:
+
+Auction_vol_lag<- DE_only_auction$`Auction Volume tCO2`[1:length(DE_only_auction$`Auction Volume tCO2`)-1]
+Auction_vol_lag<- c(0,Auction_vol_lag)
+DE_only_with_lag<- DE_only_with_lag |> mutate(
+                                          Auction_vol_lag= Auction_vol_lag, .after=`Auction Volume tCO2`
+)
+
+#Lag for Polish Auctions:
+PL_only_auction<-ets_stock_and_oil_data |> filter(AuctionType=="PL") |> filter(
+                                          is.na(`Auction Price €/tCO2`)==FALSE
+)
+PL_only_auction_price<- PL_only_auction$`Auction Price €/tCO2`
+pacf(PL_only_auction_price)
+
+
+#Auction Price Lag
+Auction_Price_lag<- PL_only_auction$`Auction Price €/tCO2`[1:length(PL_only_auction$`Auction Price €/tCO2`)-1]
+Auction_Price_lag<- c(0,Auction_Price_lag)
+PL_only_with_lag<- PL_only_auction |> mutate(
+                                          Auction_Price_lag= Auction_Price_lag, .after=`Auction Price €/tCO2`
+)
+
+#Maximum bid lag
+Max_bid_lag<- PL_only_auction$`Maximum Bid €/tCO2`[1:length(PL_only_auction$`Maximum Bid €/tCO2`)-1]
+Max_bid_lag<- c(0,Max_bid_lag)
+PL_only_with_lag<- PL_only_with_lag |> mutate(
+                                          Max_bid_lag= Max_bid_lag, .after=`Maximum Bid €/tCO2`
+)
+
+#Avg bids per bidPLr lag
+Avg_num_bids_per_bidder_lag<- PL_only_auction$`Average number of bids per bidder`[1:length(PL_only_auction$`Average number of bids per bidder`)-1]
+Avg_num_bids_per_bidder_lag<- c(0,Avg_num_bids_per_bidder_lag)
+PL_only_with_lag<- PL_only_with_lag |> mutate(
+                                          Avg_num_bids_per_bidder_lag= Avg_num_bids_per_bidder_lag, .after=`Average number of bids per bidder`
+)
+
+#Avg vol per bidder
+Avg_vol_per_bidder_lag<- PL_only_auction$`Average volume bid per bidder`[1:length(PL_only_auction$`Average volume bid per bidder`)-1]
+Avg_vol_per_bidder_lag<- c(0,Avg_vol_per_bidder_lag)
+PL_only_with_lag<- PL_only_with_lag |> mutate(
+                                          Avg_vol_per_bidder_lag= Avg_vol_per_bidder_lag, .after=`Average volume bid per bidder`
+)
+
+#oil price lag
+PL_only_with_lag<- PL_only_with_lag |> rename(
+                        oil_price = `Europe Brent Spot Price FOB (Dollars per Barrel)`
+)
+oil_price_lag<- PL_only_with_lag$oil_price[1:length(PL_only_with_lag$oil_price)-1]
+oil_price_lag<- c(0,oil_price_lag)
+PL_only_with_lag<- PL_only_with_lag |> mutate(
+                                          oil_price_lag= oil_price_lag, .after= oil_price
+)
+
+#ftse price lag:
+PL_only_with_lag<- PL_only_with_lag |> rename(
+                        ftse_price = Price
+)
+ftse_price_lag<- PL_only_with_lag$ftse_price[1:length(PL_only_with_lag$ftse_price)-1]
+ftse_price_lag<- c(0,ftse_price_lag)
+PL_only_with_lag<- PL_only_with_lag |> mutate(
+                                          ftse_price_lag= ftse_price_lag, .after= ftse_price
+)
+
+#Auction Volume tCO2 lag:
+
+Auction_vol_lag<- PL_only_auction$`Auction Volume tCO2`[1:length(PL_only_auction$`Auction Volume tCO2`)-1]
+Auction_vol_lag<- c(0,Auction_vol_lag)
+PL_only_with_lag<- PL_only_with_lag |> mutate(
+                                          Auction_vol_lag= Auction_vol_lag, .after=`Auction Volume tCO2`
+)
+
+#Lag for EUAA Auctions:
+EUAA_only_auction<-ets_stock_and_oil_data |> filter(AuctionType=="EUAA") |> filter(
+                                          is.na(`Auction Price €/tCO2`)==FALSE
+)
+EUAA_only_auction_price<- EUAA_only_auction$`Auction Price €/tCO2`
+pacf(EUAA_only_auction_price)
+
+
+#Auction Price Lag
+Auction_Price_lag<- EUAA_only_auction$`Auction Price €/tCO2`[1:length(EUAA_only_auction$`Auction Price €/tCO2`)-1]
+Auction_Price_lag<- c(0,Auction_Price_lag)
+EUAA_only_with_lag<- EUAA_only_auction |> mutate(
+                                          Auction_Price_lag= Auction_Price_lag, .after=`Auction Price €/tCO2`
+)
+
+#Maximum bid lag
+Max_bid_lag<- EUAA_only_auction$`Maximum Bid €/tCO2`[1:length(EUAA_only_auction$`Maximum Bid €/tCO2`)-1]
+Max_bid_lag<- c(0,Max_bid_lag)
+EUAA_only_with_lag<- EUAA_only_with_lag |> mutate(
+                                          Max_bid_lag= Max_bid_lag, .after=`Maximum Bid €/tCO2`
+)
+
+#Avg bids per bidPLr lag
+Avg_num_bids_per_bidder_lag<- EUAA_only_auction$`Average number of bids per bidder`[1:length(EUAA_only_auction$`Average number of bids per bidder`)-1]
+Avg_num_bids_per_bidder_lag<- c(0,Avg_num_bids_per_bidder_lag)
+EUAA_only_with_lag<- EUAA_only_with_lag |> mutate(
+                                          Avg_num_bids_per_bidder_lag= Avg_num_bids_per_bidder_lag, .after=`Average number of bids per bidder`
+)
+
+#Avg vol per bidder
+Avg_vol_per_bidder_lag<- EUAA_only_auction$`Average volume bid per bidder`[1:length(EUAA_only_auction$`Average volume bid per bidder`)-1]
+Avg_vol_per_bidder_lag<- c(0,Avg_vol_per_bidder_lag)
+EUAA_only_with_lag<- EUAA_only_with_lag |> mutate(
+                                          Avg_vol_per_bidder_lag= Avg_vol_per_bidder_lag, .after=`Average volume bid per bidder`
+)
+
+#oil price lag
+EUAA_only_with_lag<- EUAA_only_with_lag |> rename(
+                        oil_price = `Europe Brent Spot Price FOB (Dollars per Barrel)`
+)
+oil_price_lag<- EUAA_only_with_lag$oil_price[1:length(EUAA_only_with_lag$oil_price)-1]
+oil_price_lag<- c(0,oil_price_lag)
+EUAA_only_with_lag<- EUAA_only_with_lag |> mutate(
+                                          oil_price_lag= oil_price_lag, .after= oil_price
+)
+
+#ftse price lag:
+EUAA_only_with_lag<- EUAA_only_with_lag |> rename(
+                        ftse_price = Price
+)
+ftse_price_lag<- EUAA_only_with_lag$ftse_price[1:length(EUAA_only_with_lag$ftse_price)-1]
+ftse_price_lag<- c(0,ftse_price_lag)
+EUAA_only_with_lag<- EUAA_only_with_lag |> mutate(
+                                          ftse_price_lag= ftse_price_lag, .after= ftse_price
+)
+
+#Auction Volume tCO2 lag:
+
+Auction_vol_lag<- EUAA_only_auction$`Auction Volume tCO2`[1:length(EUAA_only_auction$`Auction Volume tCO2`)-1]
+Auction_vol_lag<- c(0,Auction_vol_lag)
+EUAA_only_with_lag<- EUAA_only_with_lag |> mutate(
+                                          Auction_vol_lag= Auction_vol_lag, .after=`Auction Volume tCO2`
+)
+
+#Merging, beginning with EU lag
+EU_lag<- EU_only_with_lag |> select('Date',
+                                    'AuctionType', 
+                                    'Auction_Price_lag',
+                                    'Max_bid_lag',
+                                    'Avg_num_bids_per_bidder_lag',
+                                    'Avg_vol_per_bidder_lag',
+                                    'Auction_vol_lag',
+                                    'oil_price_lag',
+                                    'ftse_price_lag'
+                                    )
+ets_EU_only_lag<- merge(x=ets_stock_and_oil_data, y= EU_lag, by=c('Date', 'AuctionType'), all.x=TRUE)
+ets_EU_only_lag<- ets_EU_only_lag |> select(-c(Open:Change..))
+
+
+lagColnamesVec<- c('Auction_Price_lag',
+                                    'Max_bid_lag',
+                                    'Avg_num_bids_per_bidder_lag',
+                                    'Avg_vol_per_bidder_lag',
+                                    'Auction_vol_lag',
+                                    'oil_price_lag',
+                                    'ftse_price_lag')
+
+#DE lag:
+DE_lag<- DE_only_with_lag |> select('Date',
+                                    'AuctionType', 
+                                    'Auction_Price_lag',
+                                    'Max_bid_lag',
+                                    'Avg_num_bids_per_bidder_lag',
+                                    'Avg_vol_per_bidder_lag',
+                                    'Auction_vol_lag',
+                                    'oil_price_lag',
+                                    'ftse_price_lag'
+                                    )
+ets_EU_DE_with_lag<- merge(x=ets_EU_only_lag, y=DE_lag, by=c('Date', 'AuctionType'), all.x=TRUE)
+
+
+for(name in lagColnamesVec){
+  x=paste0(name,".x")
+  y=paste0(name,".y")
+  ets_EU_DE_with_lag[,x]<-ifelse(is.na(ets_EU_DE_with_lag[,x]), 
+                                  ets_EU_DE_with_lag[,y],
+                                  ets_EU_DE_with_lag[,x])
+}
+
+
+ets_EU_DE_with_lag<- ets_EU_DE_with_lag |> rename(
+                                    'Auction_Price_lag'= 'Auction_Price_lag.x',
+                                    'Max_bid_lag'= 'Max_bid_lag.x',
+                                    'Avg_num_bids_per_bidder_lag'='Avg_num_bids_per_bidder_lag.x',
+                                    'Avg_vol_per_bidder_lag'='Avg_vol_per_bidder_lag.x',
+                                    'Auction_vol_lag'= 'Auction_vol_lag.x',
+                                    'oil_price_lag'= 'oil_price_lag.x',
+                                    'ftse_price_lag'='ftse_price_lag.x'
+                                    ) |> select(-c('Auction_Price_lag.y',
+                                    'Max_bid_lag.y',
+                                    'Avg_num_bids_per_bidder_lag.y',
+                                    'Avg_vol_per_bidder_lag.y',
+                                    'Auction_vol_lag.y',
+                                    'oil_price_lag.y',
+                                    'ftse_price_lag.y'))
+
+#PL lag:
+PL_lag<- PL_only_with_lag |> select('Date',
+                                    'AuctionType', 
+                                    'Auction_Price_lag',
+                                    'Max_bid_lag',
+                                    'Avg_num_bids_per_bidder_lag',
+                                    'Avg_vol_per_bidder_lag',
+                                    'Auction_vol_lag',
+                                    'oil_price_lag',
+                                    'ftse_price_lag'
+                                    )
+ets_EU_DE_PL_with_lag<- merge(x=ets_EU_DE_with_lag, 
+                              y= PL_lag, by = c('Date', 'AuctionType'),
+                              all.x=TRUE)
+
+for(name in lagColnamesVec){
+  x=paste0(name,".x")
+  y=paste0(name,".y")
+  ets_EU_DE_PL_with_lag[,x]<-ifelse(is.na(ets_EU_DE_PL_with_lag[,x]), 
+                                  ets_EU_DE_PL_with_lag[,y],
+                                  ets_EU_DE_PL_with_lag[,x])
+}
+
+ets_EU_DE_PL_with_lag<- ets_EU_DE_PL_with_lag |> rename(
+                                    'Auction_Price_lag'= 'Auction_Price_lag.x',
+                                    'Max_bid_lag'= 'Max_bid_lag.x',
+                                    'Avg_num_bids_per_bidder_lag'='Avg_num_bids_per_bidder_lag.x',
+                                    'Avg_vol_per_bidder_lag'='Avg_vol_per_bidder_lag.x',
+                                    'Auction_vol_lag'= 'Auction_vol_lag.x',
+                                    'oil_price_lag'= 'oil_price_lag.x',
+                                    'ftse_price_lag'='ftse_price_lag.x'
+                                    ) |> select(-c('Auction_Price_lag.y',
+                                    'Max_bid_lag.y',
+                                    'Avg_num_bids_per_bidder_lag.y',
+                                    'Avg_vol_per_bidder_lag.y',
+                                    'Auction_vol_lag.y',
+                                    'oil_price_lag.y',
+                                    'ftse_price_lag.y'))
+
+
+
+#Adding EUAA lag:
+
+EUAA_lag<- EUAA_only_with_lag |> select('Date',
+                                    'AuctionType', 
+                                    'Auction_Price_lag',
+                                    'Max_bid_lag',
+                                    'Avg_num_bids_per_bidder_lag',
+                                    'Avg_vol_per_bidder_lag',
+                                    'Auction_vol_lag',
+                                    'oil_price_lag',
+                                    'ftse_price_lag'
+                                    )
+
+ets_representative_lag<- merge(x=ets_EU_DE_PL_with_lag,
+                               y=EUAA_lag, by = c('Date', 'AuctionType'),
+                               all.x=TRUE)
+
+for(name in lagColnamesVec){
+  x=paste0(name,".x")
+  y=paste0(name,".y")
+  ets_representative_lag[,x]<-ifelse(is.na(ets_representative_lag[,x]), 
+                                  ets_representative_lag[,y],
+                                  ets_representative_lag[,x])
+}
+
+ets_representative_lag<- ets_representative_lag |> rename(
+                                    'Auction_Price_lag'= 'Auction_Price_lag.x',
+                                    'Max_bid_lag'= 'Max_bid_lag.x',
+                                    'Avg_num_bids_per_bidder_lag'='Avg_num_bids_per_bidder_lag.x',
+                                    'Avg_vol_per_bidder_lag'='Avg_vol_per_bidder_lag.x',
+                                    'Auction_vol_lag'= 'Auction_vol_lag.x',
+                                    'oil_price_lag'= 'oil_price_lag.x',
+                                    'ftse_price_lag'='ftse_price_lag.x'
+                                    ) |> select(-c('Auction_Price_lag.y',
+                                    'Max_bid_lag.y',
+                                    'Avg_num_bids_per_bidder_lag.y',
+                                    'Avg_vol_per_bidder_lag.y',
+                                    'Auction_vol_lag.y',
+                                    'oil_price_lag.y',
+                                    'ftse_price_lag.y'))
+
+#Preparing data for a first differences procedure:
+
+#Starting by transforming the variables:
+
+ets_first_diff<- ets_representative_lag |> rename(
+                  oil_price= `Europe Brent Spot Price FOB (Dollars per Barrel)`,
+                  ftse_price = Price
+)
+
+#Maintaining a version of the data to use for EDA:
+ets_modeling_data<- ets_first_diff
+
+ets_first_diff<-ets_first_diff |> mutate(
+                  Auction_Price_fd = `Auction Price €/tCO2`- Auction_Price_lag,
+                  Max_bid_fd = `Maximum Bid €/tCO2` - Max_bid_lag,
+                  Avg_bids_fd= `Average number of bids per bidder` - Avg_num_bids_per_bidder_lag,
+                  Avg_vol_fd= `Average volume bid per bidder`- Avg_vol_per_bidder_lag,
+                  Auction_vol_fd = `Auction Volume tCO2`- Auction_vol_lag,
+                  oil_price_fd = oil_price - oil_price_lag,
+                  ftse_price_fd = ftse_price -ftse_price_lag
+) |> select (
+            Auction_Price_fd,
+            Max_bid_fd,
+            Avg_bids_fd,
+            Avg_vol_fd,
+            Auction_vol_fd,
+            oil_price_fd,
+            ftse_price_fd
+)
+```
 
 ## Abstract
 
@@ -31,6 +532,6 @@ A quick examination of the EU ETS(EU Emissions Trading System) data reveals that
 
 \*The other goal of this analysis is to see how economic performance for corporations affects CO2 allowance prices and whether this is at all reflective of incentives to reduce emissions.
 
-To further narrow down which variables we might use, correlation matrices were created and highly correlated predictors were eliminated.
+To further narrow down which variables we might use, correlation matrices were created and highly correlated predictors were eliminated. Similarly, we want variables that are at least a little well correlated with the outcome variable (Auction Price) so as to 
 
 ### The Time Series Dimension.

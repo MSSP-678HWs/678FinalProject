@@ -14,29 +14,27 @@ library(reshape2)
 library(car)
 library(lubridate)
 library(lme4)
-
 ```
 
-Reading in the documents I need:
-```{r}
+```{r, inlcude=FALSE}
+#Reading in the documents I need:
 brent_crude_prices<- read_excel("brent_crude_prices.xlsx")
 co2_emissions_data<-read.csv("co2_emission.csv")
 ftse<- read.csv("FTSE 100 Historical Data.csv")
 eu_ets_data<-read_excel("EU-ETS-data.xlsx")
 ```
 
-Converting dates to the right format so I can join them:
-
-```{r}
+```{r, include=FALSE}
+#Converting dates to the right format so I can join them:
 eu_ets_data$Date<- as.Date(eu_ets_data$Date)
 brent_crude_prices$Date<- as.Date(brent_crude_prices$Date)
 ftse$Date<- mdy(ftse$Date)
 ftse$Price<- as.numeric(str_replace(ftse$Price,",",""))
 ```
 
-Joining the three data frames:
+```{r, include=FALSE}
 
-```{r}
+#Joining the three data frames:
 auction_and_oil<- merge(x=eu_ets_data,y=brent_crude_prices, 
                          by="Date", all.x=TRUE) 
 
@@ -48,8 +46,7 @@ pacf(oil_prices, lag=10, pl=TRUE)
 ets_stock_and_oil_data<- merge(x=auction_and_oil, y= ftse, by='Date', all.x=TRUE)
 ```
 
-Now we need to clean the ets_stock and oil data so we can get an appropriate lag and check autocorrelations for each type of data:
-```{r}
+```{r, inlcude=FALSE}
 #First let's change auction name to just have EU, DE, PL or EUAA:
 
 ets_stock_and_oil_data<- ets_stock_and_oil_data |> mutate(
@@ -59,8 +56,8 @@ ets_stock_and_oil_data<- ets_stock_and_oil_data |> mutate(
 ), .after=`Auction Name`)
 ```
 
-Setting up lags, starting with EU_only_auction:
 ```{r}
+#Setting up lags, starting with EU_only_auction:
 EU_only_auction<- ets_stock_and_oil_data |> filter(AuctionType=="EU") |> filter(
                                           is.na(`Auction Price €/tCO2`)==FALSE
 )
@@ -297,7 +294,9 @@ PL_only_with_lag<- PL_only_with_lag |> mutate(
 
 #So for Poland, I don't need to worry about autocorrelation at all
 ```
+
 What about EUAA:
+
 ```{r}
 EUAA_only_auction<-ets_stock_and_oil_data |> filter(AuctionType=="EUAA") |> filter(
                                           is.na(`Auction Price €/tCO2`)==FALSE
@@ -512,6 +511,7 @@ ets_representative_lag<- ets_representative_lag |> rename(
 ```
 
 Checking Autocorrelation structures for various variables:
+
 ```{r}
 ets_with_rep_lag<- na.omit(ets_representative_lag)
 pacf(ets_with_rep_lag$`Maximum Bid €/tCO2`)
@@ -581,9 +581,10 @@ durbinWatsonTest(lag_transformed_fit)
 
 ```
 
-So let's start with no pooling models. We have our complete pooling model above. Motivations for other models include the fact that we have four distinct auction types which might well vary. Further the lag above doesn't really account well for the differences between the models, especially the variation in their time series structure so no pooling and partial pooling models might well be very useful. 
+So let's start with no pooling models. We have our complete pooling model above. Motivations for other models include the fact that we have four distinct auction types which might well vary. Further the lag above doesn't really account well for the differences between the models, especially the variation in their time series structure so no pooling and partial pooling models might well be very useful.
 
-1) No pooling for EU wide auctions:
+1)  No pooling for EU wide auctions:
+
 ```{r}
 ets_EU_only<- ets_modeling_data |> filter(AuctionType=="EU")
 
@@ -635,8 +636,9 @@ res<- resid(EU_lag_transformed_fit)
 plot(fitted(EU_lag_transformed_fit), res)
 
 ```
- No pooling for German Auctions:
- 
+
+No pooling for German Auctions:
+
 ```{r}
 ets_DE_only<- ets_modeling_data |> filter(AuctionType=="DE")
 
@@ -690,6 +692,7 @@ plot(fitted(DE_lag_transformed_fit), res)
 ```
 
 No Pooling model Fur Poland und Nicht fur Deutschland:
+
 ```{r}
 ets_PL_only<- ets_modeling_data |> filter(AuctionType=="PL")
 
@@ -820,14 +823,11 @@ partial_pool_fit_intercept_only<- lmer(Auction_Price_fd ~ Max_bid_fd+Avg_bids_fd
                             data=ets_partial_pooling_first_diff)
 
 summary(partial_pool_fit_intercept_only)
+coef(partial_pool_fit_intercept_only)
 
 durbinWatsonTest(partial_pool_fit_intercept_only)
 ```
 
 #Force intercept to zero in aboive model
 
-TO DO:
-Interpret all the models. 
-Explain variable picking
-Run predictions for our models
-
+TO DO: Interpret all the models. Explain variable picking Run predictions for our models
