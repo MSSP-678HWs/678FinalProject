@@ -1,10 +1,11 @@
 ---
-title: "MA678 Final Project Report"
-subtitle: "Predicting Auction price for CO2 Allowances under EU Cap and Trade"
+title: "Predicting Auction price for CO2 Allowances under EU Cap and Trade Emissions Trading System (ETS)"
+subtitle: "MA678 Final Project Report Fall 2023"
 author: "Ajay Krishnakumar"
 format: pdf
 editor: visual
 ---
+
 ```{r}
 #| echo: false
 #| message: false
@@ -139,7 +140,11 @@ EU_only_with_lag<- EU_only_with_lag |> mutate(
                                           Auction_vol_lag= Auction_vol_lag, .after=`Auction Volume tCO2`
 )
 ```
+
 ```{r}
+#| echo: false
+#| message: false
+#| output: false
 #Setting up lag for German Auctions
 DE_only_auction<-ets_stock_and_oil_data |> filter(AuctionType=="DE") |> filter(
                                           is.na(`Auction Price €/tCO2`)==FALSE
@@ -533,20 +538,19 @@ The EU Cap and Trade system allows industrial placements, corporations and other
 
 ## Data - Sources and Initial Analysis:
 
-The EU Emissions Trading System data I've used here comes from the website of the EEX (European Energy Exchange), the exchange licensed to run these auctions. The data goes back to 2017. 
+The EU Emissions Trading System data I've used here comes from the website of the EEX (European Energy Exchange), the exchange licensed to run these auctions. The data goes back to 2017.
 
 A quick examination of the EU ETS(EU Emissions Trading System) data reveals that some metrics are naturally more appropriate to use in an analysis of this nature, especially considering the aims of this analysis are twofold:
 
 -   To identify, from a strategic standpoint, at least as far as participants in the auction are concerned, what predicts auction price well: Clearly, in this scenario, averages work better than net results, especially given total numbers are typically restricted by eligibility of participants and changing policy measures.
-    -   Further, averages might more readily reflect behavior individual parties in the auction might adapt. For example, if having a larger volume per bid seems to lower price, it would be in the interest of parties to bid in higher volumes although there would naturally be a point when total cost and per unit cost would need to be balanced. 
-    -   Variables such as average bid per bidder and average volume per bidder are also interesting because it could be reasonably argued that they are representative of the level of demand for the CO2 allowances being auctioned. Similarly Auction Volume isn't just representative of supply - it is the supply. These two components are important, from a basic economic theory standpoint in predicting price, even auction price here. 
-    -   One of the variables I'm especially interested in is the Maximum bid price. This is a really interesting variable because it seems that bidding really high is a viable method to win the auction as the auction clearing price is always resolved beneath the highest bid and the structure of the auction(see introduction above) would guarantee the highest bidder the allowances they seek. 
+    -   Further, averages might more readily reflect behavior individual parties in the auction might adapt. For example, if having a larger volume per bid seems to lower price, it would be in the interest of parties to bid in higher volumes although there would naturally be a point when total cost and per unit cost would need to be balanced.
+    -   Variables such as average bid per bidder and average volume per bidder are also interesting because it could be reasonably argued that they are representative of the level of demand for the CO2 allowances being auctioned. Similarly Auction Volume isn't just representative of supply - it is the supply. These two components are important, from a basic economic theory standpoint in predicting price, even auction price here.
+    -   One of the variables I'm especially interested in is the Maximum bid price. This is a really interesting variable because it seems that bidding really high is a viable method to win the auction as the auction clearing price is always resolved beneath the highest bid and the structure of the auction(see introduction above) would guarantee the highest bidder the allowances they seek.
+-   The other goal of this analysis is to see how economic performance for corporations affects CO2 allowance prices and whether this is at all reflective of incentives to reduce emissions.
 
-\*The other goal of this analysis is to see how economic performance for corporations affects CO2 allowance prices and whether this is at all reflective of incentives to reduce emissions.
+To address the second goal of this analysis, data for the European Price of Brent Crude Oil in dollars per barrel was added, both as a measure of the prevailing price environment but also as an economic measure of costs for the installations and corporations covered by the Cap and Trade Regulation.
 
-To address the second goal of this analysis, data for the European Price of Brent Crude Oil per barrel was added, both as a measure of the prevailing price environment but also as an economic measure of costs for the installations and corporations covered by the Cap and Trade Regulation.
-
-The value of the FTSE 100 index was added as further predictor(while Brexit has been an ongoing 'thing' since before the start of the time frame examined in this analysis, the LSE has mostly remained the largest European Exchange and the FTSE probably the best reflection of business performance across the pond). 
+The value of the FTSE 100 index was added as further predictor(while Brexit went from looming spectre to finally completed to barely even acknowledged now over the time frame examined in this analysis, the LSE has mostly remained the largest European Stock Exchange and the FTSE probably the best reflection of business performance across the pond).
 
 We can see from the figure below that FTSE and especially Oil Prices move really well with CO2 allowance Auction Prices and might therefore serve as good determinants of that price. They should also help inform how other auction variables such as volume and average bid size affect auction price controlling for macroeconomic effects
 
@@ -564,10 +568,12 @@ suppressWarnings(
             
 ```
 
-
 To further narrow down which variables we might use, correlation matrices were created and highly correlated predictors were eliminated. Similarly, we want variables that are at least a little well correlated with the outcome variable (Auction Price). Eliminating the variables that are highly correlated or which might not be meaningful predictors at least as far as interpretation is concerned, we get:
 
 ```{r}
+#| echo: false
+#| message: false
+#| output: false
 eu_cor_frame<- ets_modeling_data |> select(`Auction Price €/tCO2`,`Auction Volume tCO2`, `Maximum Bid €/tCO2`,`Average number of bids per bidder`,
                                     oil_price, ftse_price) 
 
@@ -577,15 +583,18 @@ cor_matrix<- cor(eu_cor_frame)
 cor_matrix
 
 ```
-We can see that between these four predictors of Auction price, we have pretty strong correlations. The correlations between predictors is a little bit stronger than we would like it to be but not enough to be problematic for our regression. Unfortunately, with economic data like this, its not going to be possible to find data with significantly lower correlations, especially with such measures as oil price and ftse price included. Nevertheless we shall explore below whether leaving those factors out gives us a better or worse model. 
 
-Another consideration before we move on: The scale of the data above varies. We already had to transform the price of the FTSE 100 index in the graph above by dividing it by 100 to display it on the same scale as crude oil prices and CO2 allowance auction prices. Auction Volume is in the millions, average volume per bidder is in the hundreds of thousands while number of bids per bidder is in single digits. So we log those variables that are on a much larger scale. 
+We can see that between these four predictors of Auction price, we have pretty strong correlations. The correlations between predictors is a little bit stronger than we would like it to be but not enough to be problematic for our regression. Unfortunately, with economic data like this, its not going to be possible to find data with significantly lower correlations, especially with such measures as oil price and ftse price included. Nevertheless we shall explore below whether leaving those factors out gives us a better or worse model.
+
+Another consideration before we move on: The scale of the data above varies. We already had to transform the price of the FTSE 100 index in the graph above by dividing it by 100 to display it on the same scale as crude oil prices and CO2 allowance auction prices. Auction Volume is in the millions, average volume per bidder is in the hundreds of thousands while number of bids per bidder is in single digits. So we log those variables that are on a much larger scale.
 
 ### The Time Series Dimension
 
-Graph 1 above might have given you pause and made you think "Hold on, doesn't this look awfully like time series data?". That's because it does, and it is and that poses a problem in as much as time series data, being autocorrelated violates the condition of independence of errors for simple linear regression and OLS estimates. We can see the time series structure of the data in the graphs below and will discuss how to handle that. 
+Graph 1 above might have given you pause and made you think "Hold on, doesn't this look awfully like time series data?". That's because it does, and it is and that poses a problem in as much as time series data, being autocorrelated violates the condition of independence of errors for simple linear regression and OLS estimates. We can see the time series structure of the data in the graphs below and will discuss how to handle that.
 
 ```{r}
+#| echo: false
+#| message: false
 ets_modeling_data<- na.omit(ets_modeling_data)
 pacf(ets_modeling_data$`Auction Price €/tCO2`,lag=10, pl=TRUE, main="Graph 2 :
      Partial Autocorrelation for Auction Price €/tCO2")
@@ -598,23 +607,30 @@ pacf(ets_modeling_data$ftse_price,lag=10, pl=TRUE, main="Graph 4 :
 
 ```
 
-All these variables have an AR(1) structure which is relatively typical of a lot of economic data. In order to model these appropriately, I added lag columns for our variables in the data(the code for this is in the appendix) and a first differences approach in the models below should help bring the Durbin Watson Statistic to acceptable levels. I will point these out as we go in the discussion of the models. 
+All these variables have an AR(1) structure which is relatively typical of a lot of economic data. In order to model these appropriately, I added lag columns for our variables in the data(the code for this is in the appendix) and a first differences approach in the models below should help bring the Durbin Watson Statistic to acceptable levels. I will point these out as we go in the discussion of the models.
 
-A first differences procedure is being used here because the literature I read indicates that for economic data the $\rho$ for AR(1) structures is generally high and First differences procedure is appropriate.(Penn State Applied Regression Analysis 10.3 - Regression with Autoregressive Errors: https://online.stat.psu.edu/stat462/node/189/). 
+A first differences procedure is being used here because the literature I read indicates that for economic data the $\rho$ for AR(1) structures is generally high and First differences procedure is appropriate.(Penn State Applied Regression Analysis 10.3 - Regression with Autoregressive Errors: https://online.stat.psu.edu/stat462/node/189/).
 
 #### A little aside
-Some of the auction data such as auction volume and number of bids per bidder have autoregression structures that are not as straightforward.  
+
+Some of the auction data such as auction volume and number of bids per bidder have autoregression structures that are not as straightforward.
 
 ```{r}
+#| echo: false
+#| message: false
 pacf(ets_modeling_data$`Average number of bids per bidder`, lag=10, pl=TRUE, main= "Graph 5:
      Partial Autocorrelation in \naverage number of bids per bidder")
 pacf(ets_modeling_data$`Auction Volume tCO2`, lag = 10, pl = TRUE, main = "Graph 6: 
      Partial Autocorrelation in \nAverage volume in tons of CO2")
 ```
+
 However, introducing a lag brings the level of the partial autocorrelation down to levels which are much more acceptable for this model, as we can glean from the graphs below.
 
 Strictly speaking, we still have autocorrelation in multiple points above the level of significance and more advanced methods would need to be used to deal with this and would certainly contribute to a better performance of the models presented later in this paper.Unfortunately, that is beyond the scope of this project and is something to be left for future work.
+
 ```{r}
+#| echo: false
+#| message: false
 pacf(ets_modeling_data$`Average number of bids per bidder`- ets_modeling_data$Avg_num_bids_per_bidder_lag,
                lag=10, pl=TRUE, main= "Graph 7:
      Partial Autocorrelation in lag adjusted average number of bids per bidder")
@@ -623,5 +639,46 @@ lag = 10, pl = TRUE, main = "Graph 8:
      Partial Autocorrelation in lag adjusted Average volume in tons of CO2")
 ```
 
+## Modeling Auction Price
 
+In this section we examine a number of models of auction price. We'll start with simple linear models, one with just the auction predictors and one that also includes oil and ftse prices. Then we will evaluate a 'no pooling' model that splits the data into groupings based on auction type: EU, DE (Germany), PL(Poland) and EUAA(Aviation Allowances). This will be followed by mixed effects models - varying intercept and then varying both intercepts and slopes. This section will also address the interpretations of the coefficients of each model.
+
+We are going to evaluate the performance of these models in the next section of this paper by using the coefficients to predict Auction prices. Therefore we will divide the dataset so we get an 80-20 split for training-prediction. The following models are trained on that initial 80% which goes up to July 8th 2022. All the auctions following that date will constitute our prediction dataset.
+
+### A simple linear regression:
+
+The first model we run will be a simple linear regression, however, just to demonstrate the handling of time-series here we are going to run one regression without adjusting our variables by their lags and display the Durbin Watson statistic for that to demonstrate just how untenable a basic model is. Then we will adjust the variables using the first differences procedure.
+
+```{r}
+#| echo: false
+#| message: false
+
+#Filtering data to get the training set:
+
+ets_training_data<- ets_modeling_data |> filter(Date<= '2022-07-08')
+ets_test_data<- ets_modeling_data |> filter(Date > '2022-07-08')
+```
+
+#### linear regression without lag adjustment:
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+ets_training_data$ftse_price<- ets_training_data$ftse_price/100
+ets_training_data$ftse_price_lag_overall<- ets_training_data$ftse_price_lag_overall/100
+ets_training_data$ftse_price_lag<- ets_training_data$ftse_price_lag/100
+fit_no_lag<- lm(`Auction Price €/tCO2` ~ `Maximum Bid €/tCO2`+
+                                          `Average number of bids per bidder`+
+                                          log(`Auction Volume tCO2`)+
+                                            oil_price+ ftse_price, 
+                 family=gaussian, data=ets_training_data)
+
+summary(fit_no_lag)
+durbinWatsonTest(fit_no_lag)
+```
+We see the results of a simple linear regression. The coefficients for all but ftse price are significant and can be interpreted pretty easily. For a  difference in Maximum bid price of 1 euro the auction price is higher by 0.87 euros. Since ftse price is transformed by dividing by a hundred, we can interpret that coefficient by saying for a hundred point difference in FTSE the auction price of CO2 allowances is 0.03 euros higher. For the log auction volume variable: For a difference in auction volume of 1%, the Auction price for CO2 allowances per ton is 0.0129 euros lower. 
+
+However, the Durbin Watson statistic is 1.275 and we see significant autocorrelation. The next model, where we transform the variables using their respective lags
 
