@@ -11,3 +11,24 @@ editor: visual
 The EU Cap and Trade system allows industrial placements, corporations and other eligible participants to auction off or purchase CO2 emissions allowances in the event of their having excess allowances or needing more allowances to avoid breaching their cap. This report endevors to look at variables dictating the auctions themselves and outside factors to predict the auction price and to establish to some extent whether booming business and industry relates to premiums on continued emissions of CO2 equivalents as measured by auction price.
 
 ## Introduction
+
+### The EU Cap and Trade System
+
+### Why predict Auction Price?
+
+## Data - Sources and Initial Analysis:
+
+The data collected come from the website of the EEX (European Energy Exchange), the exchanged licensed to run these auctions. The data goes back to 2017. In addition, data for the European Price of Brent Crude Oil per barrel was added, both as a measure of the prevailing price environment but also as an economic measure of costs for the installations and corporations covered by the Cap and Trade Regulation. 
+
+A quick examination of the ets data reveals that some metrics are naturally more appropriate to use in an analysis of this nature, especially considering the aims of this analysis are twofold:
+
+* To identify, from a strategic standpoint, at least as far as particpants in the auction are concerned, what predicts auction price well: Clearly, in this scenario, averages work better than net results, especially given total numbers are typically restricted by eligibility of participants and changing policy measures. Further, averages might more readily reflect behavior individual parties in the auction might adapt. For example, if having a larger volume per bid seems to lower price, it would be in the interest of parties to bid in higher volumes although there would naturally be a point when total cost and per unit cost would need to be balanced. That analysis would have to follow from this and be a separate question to be answered. 
+  * Specifically, I'm interested in the Maximum bid price. This is a really interesting variable because it seems that bidding really high is a viable method to win the auction as the auction clearing price is always resolved beneath the highest bid. 
+  
+*The other goal of this analysis is to see how economic performance for corporations affects CO2 allowance prices and whether this is at all reflective of incentives to reduce emissions. 
+
+To further narrow down which variables we might use, correlation matrices were created and highly correlated predictors were eliminated. 
+
+Oil prices and FTSE were added as further predictors(while Brexit has been an ongoing thing since before the start of the time frame examined in this analysis, the LSE has mostly remained the largest European Exchange and teh FTSE probably the best reflection of business performance across the pond. )
+
+### The Time Series Dimension. 
