@@ -728,7 +728,7 @@ durbinWatsonTest(complete_pooling_fit_lag_adj)
 
 ```
 
-We can see that this model is much better. We have an almost acceptable Durbin Watson test statistic now(the exercise of refining this statistic even further is beyond the scope of this paper). Nevertheless we cannot reject the null hypothesis of the test that there is positive autocorrelation. Perhaps our other models will do much better. 
+We can see that this model is much better. We have an almost acceptable Durbin Watson test statistic now(the exercise of refining this statistic even further is beyond the scope of this paper). Nevertheless we cannot reject the null hypothesis of the test that there is positive autocorrelation. Perhaps our other models will do much better.
 
 What about the coefficients?
 
@@ -801,7 +801,7 @@ res<- resid(complete_pooling_fit_lag_adj_auction_only)
 plot(fitted(complete_pooling_fit_lag_adj_auction_only),res)+abline(0,0)
 ```
 
-We can see that only max bid price is significant here.  The models have very comparable AIC's (differing by a paltry 0.2) so its difficult to conclude which model may better serve us. Perhaps our predictions later shall help us sort that out. 
+We can see that only max bid price is significant here. The models have very comparable AIC's (differing by a paltry 0.2) so its difficult to conclude which model may better serve us. Perhaps our predictions later shall help us sort that out.
 
 #### A note on the residuals here:
 
@@ -809,24 +809,22 @@ The residuals are largely as they should be but we still see a *lot of outliers*
 
 However I would be loathe to leave those out at this juncture simply because for the period of prediction (and for the forseeable future and even conceivably, one could argue for any substantive economic horizon with the volatility we see today) the 'events' that these outliers describe continue to occur if not with any level of frequency. All the same, *I think the influence of these points on our regression is something I would not want to leave out without significant further investigation*.
 
-Another potential cause of these outliers is that our data actually involves data from four distinct auctions covered under the EU ETS system: 
--   EU Auctions 
--   German Auctions 
--   Polish Auctions 
--   Aviation Allowance Auctions.
+Another potential cause of these outliers is that our data actually involves data from four distinct auctions covered under the EU ETS system: - EU Auctions - German Auctions - Polish Auctions - Aviation Allowance Auctions.
 
-To deal with these groups in our data, a multi level modelling appraoch was warranted. We will first build no pooling versions of the models above, compare them and then move on to a partial pooling approach. All along the way, we followed the same first differences approach as shown above. In the cases where intercept was not significant we didn't need to follow the process of adjusting it as we did above. 
+To deal with these groups in our data, a multi level modelling appraoch was warranted. We will first build no pooling versions of the models above, compare them and then move on to a partial pooling approach. All along the way, we followed the same first differences approach as shown above. In the cases where intercept was not significant we didn't need to follow the process of adjusting it as we did above.
 
 ### No Pooling Models for each Auction Group
 
 #### Another quick aside: On lags
-Before we get stuck into the weeds with these, it's important to have a quick discussion about lags:
-For the folowing data, lag has to be recalculated and adjusted as we cannot just subset the lags from the entire dataset and have them line up correctly.  
 
-#### Back to regularly scheduled programming: 
+Before we get stuck into the weeds with these, it's important to have a quick discussion about lags: For the folowing data, lag has to be recalculated and adjusted as we cannot just subset the lags from the entire dataset and have them line up correctly.
+
+#### Back to regularly scheduled programming:
+
 ##### EU Auctions:
 
-We will start with the model for the EU Auctions. Again, we adjust our variables with their respective, correct lags. 
+We will start with the model for the EU Auctions. Again, we adjust our variables with their respective, correct lags.
+
 ```{r}
 #| echo: false
 #| message: false
@@ -853,7 +851,8 @@ durbinWatsonTest(EU_no_pool_fit)
 
 
 ```
-The intercept is not significant, so we don't need to adjust it here. 
+
+The intercept is not significant, so we don't need to adjust it here.
 
 ###### The same model without Oil and FTSE:
 
@@ -869,13 +868,14 @@ summary(EU_no_pool_fit_auction_only)
 durbinWatsonTest(EU_no_pool_fit_auction_only)
 ```
 
-We can see that we have a better Durbin Watson statistic for both models here and we can reject the null hypothesis that there is autocorrelation. Clearly the First differences procedure does a good job dealing with the autocorrelation in these cases. 
+We can see that we have a better Durbin Watson statistic for both models here and we can reject the null hypothesis that there is autocorrelation. Clearly the First differences procedure does a good job dealing with the autocorrelation in these cases.
 
-The maximum bid is statistically significant and can be interpreted in the same way as in any other linear regression model. The FTSE index is also statistically significant.  It's also worth noting that th AIC is much smaller than in our previous models. In fact its close to half the value of the AIC of the other models. We can conclude that we have a much better fit here than in the complete pooling. it's also worth noting that the AIC for the model with oil and FTSE included is noticeably better but perhaps not by a significant amount. Again, we shall look to predictions to help us out. 
+The maximum bid is statistically significant and can be interpreted in the same way as in any other linear regression model. The FTSE index is also statistically significant. It's also worth noting that th AIC is much smaller than in our previous models. In fact its close to half the value of the AIC of the other models. We can conclude that we have a much better fit here than in the complete pooling. it's also worth noting that the AIC for the model with oil and FTSE included is noticeably better but perhaps not by a significant amount. Again, we shall look to predictions to help us out.
 
-Can we say that about all our no pooling models generally? No. We need to run through all of them. 
+Can we say that about all our no pooling models generally? No. We need to run through all of them.
 
 ##### German Auctions(DE):
+
 ```{r}
 #| echo: false
 #| message: false
@@ -902,6 +902,7 @@ durbinWatsonTest(DE_no_pool_fit)
 
 
 ```
+
 ###### The same model with only Maximum Bid, Oil and FTSE:
 
 ```{r}
@@ -916,7 +917,8 @@ summary(DE_no_pool_fit_auction_only)
 durbinWatsonTest(DE_no_pool_fit_auction_only)
 
 ```
-Our DW Test statistics aren't looking so good for these models although the AIC is much much better than for the previous models. This may also be because the sample size is much smaller for these auctions. 
+
+Our DW Test statistics aren't looking so good for these models although the AIC is much much better than for the previous models. This may also be because the sample size is much smaller for these auctions.
 
 ##### Polish Auctions (PL):
 
@@ -961,7 +963,8 @@ summary(PL_no_pool_fit_auction_only)
 durbinWatsonTest(PL_no_pool_fit_auction_only)
 
 ```
-The DW statistics here have gone too far the other way, with us now not being able to reject the null hypothesis that there is no negative autocorrelation. While our lag adjusted First Differences procedure worked really well for the EU auctions, it seems to be less effective here, likely because more sophisticated techniques for dealing with the time series are required of these small subsets of our data. Nevertheless this is an important finding. 
+
+The DW statistics here have gone too far the other way, with us now not being able to reject the null hypothesis that there is no negative autocorrelation. While our lag adjusted First Differences procedure worked really well for the EU auctions, it seems to be less effective here, likely because more sophisticated techniques for dealing with the time series are required of these small subsets of our data. Nevertheless this is an important finding.
 
 ##### EUAA Auctions:
 
@@ -1006,13 +1009,15 @@ summary(EUAA_no_pool_fit_auction_only)
 durbinWatsonTest(EUAA_no_pool_fit_auction_only)
 
 ```
-These models too, suffer from the same issues as for Poland and Germany. 
 
-Perhaps our two Partial Pooling models  can do better.
+These models too, suffer from the same issues as for Poland and Germany.
+
+Perhaps our two Partial Pooling models can do better.
 
 ### Partial Pooling Models:
 
-First let's look at the partial pooling model varying only intercept for auction variables and oil and FTSE prices. 
+First let's look at the partial pooling model varying only intercept for auction variables and oil and FTSE prices.
+
 ```{r}
 #| echo: false
 #| message: false
@@ -1040,14 +1045,12 @@ coef(partial_pool_fit_intercept_only)
 
 ```
 
-This model is really interesting. We can see that Max Bid price, Auction volume, oil price and FTSE price are all significant by examining the standard errors. Further, the Fixed efects are fascinating because we can see that Aviation Auctions have a much higher average price than the other types of CO2 allowance auctions. 
+This model is really interesting. We can see that Max Bid price, Auction volume, oil price and FTSE price are all significant by examining the standard errors. Further, the Fixed efects are fascinating because we can see that Aviation Auctions have a much higher average price than the other types of CO2 allowance auctions.
 
 What if we try and vary the slope of the significant variables in the above regression. We can see from the size of the random effects in the above regression that we're likely to get a warning that our random effects are very small :
 
 ```{r}
 #| echo: false
-
-
 
 partial_pool_fit_slopes<- lmer(Auction_Price_fd ~ Max_bid_fd+Avg_bids_fd+
                             Auction_vol_fd+oil_price_fd+ftse_price_fd+ (1+ Max_bid_fd + Auction_vol_fd +oil_price_fd +ftse_price_fd|AuctionType),
@@ -1058,12 +1061,15 @@ coef(partial_pool_fit_intercept_only)
 
 ```
 
-We can see that this model yields the same results as for the model with only variable intercept. 
+We can see that this model yields the same results as for the model with only variable intercept.
 
 ###### Max bid, Oil and FTSE only
 
-
 ```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
 partial_pool_fit_intercept_oil_ftse<- lmer(Auction_Price_fd ~ Max_bid_fd+oil_price_fd+ftse_price_fd+ (1|AuctionType),
                             data=ets_partial_pooling_first_diff)
 
@@ -1072,23 +1078,43 @@ coef(partial_pool_fit_intercept_oil_ftse)
 
 ```
 
-We don't see any significant improvement for losing a significant variable, so we can conclude that the prior model is better. 
+We don't see any significant improvement for losing a significant variable, so we can conclude that the prior model is better.
 
 ### Takeaways from the Modeling Process and a brief discussion of Conclusions so far before we move to Prediction
 
-Before we jump into using our models to predict Auction prices, I think a brief discussion about the results we've had thus far is worthwhile. 
+Before we jump into using our models to predict Auction prices, I think a brief discussion about the results we've had thus far is worthwhile.
 
--   Max Bid price, oil and FTSE are consistently good predictors of Auction Price. 
+-   Max Bid price, oil and FTSE are consistently good predictors of Auction Price.
 
--   However, our models are generally plagued by autocorrelation with the exception of the EU only auction model. This isn't all bad news because it tells us that, barring the use of more sophisticated time series analysis, a regression model can model only EU auctions well and not German, Polish or EUAA auctions or perhaps even the whole ETS system. 
+-   However, our models are generally plagued by autocorrelation with the exception of the EU only auction model. This isn't all bad news because it tells us that, barring the use of more sophisticated time series analysis, a regression model can model only EU auctions well and not German, Polish or EUAA auctions or perhaps even the whole ETS system.
 
--   The significance of Oil Prices  is telling when related to the literature reviewed in preparation for this analysis. Bayer and Alkin(https://www.pnas.org/doi/10.1073/pnas.1918128117) found that the ETS system reduced CO2 emissions despite low prices. Now that prices are much, much higher and clearly driven both by Oil prices we can say(although not with definite certainty but with a certain level of confidence) that the emission reduction effect of the ETS system and the climate change combating priorities it espouses have found their way into the attitude of firms and installations. That is to say, the premium on continued emissions, driven by larger costs of energy production and use, has had a positive effect on the goals of this energy market and the authors' assertion that initially low prices for CO2 allowances in no way spelled doom for the ETS market or for the EU's climate goals appears to be borne out. 
+-   The significance of Oil Prices is telling when related to the literature reviewed in preparation for this analysis. Bayer and Alkin(https://www.pnas.org/doi/10.1073/pnas.1918128117) found that the ETS system reduced CO2 emissions despite low prices. Now that prices are much, much higher and clearly driven both by Oil prices we can say(although not with definite certainty but with a certain level of confidence) that the emission reduction effect of the ETS system and the climate change combating priorities it espouses have found their way into the attitude of firms and installations. That is to say, the premium on continued emissions, driven by larger costs of energy production and use, has had a positive effect on the goals of this energy market and the authors' assertion that initially low prices for CO2 allowances in no way spelled doom for the ETS market or for the EU's climate goals appears to be borne out.
 
--   We can also say, from the fact that we keep seeing FTSE as a consistent predictor of Auction Price that Dechezlepretre, Nachtigall and Venmans (https://www.sciencedirect.com/science/article/pii/S0095069622001115) contention that despite what critics of the EU's cap and Trade system had to say about the detrimental economic effect of the ETS system, it would actually benefit firms, installations and even the economy is also accurate. 
+-   We can also say, from the fact that we keep seeing FTSE as a consistent predictor of Auction Price that Dechezlepretre, Nachtigall and Venmans (https://www.sciencedirect.com/science/article/pii/S0095069622001115) contention that despite what critics of the EU's cap and Trade system had to say about the detrimental economic effect of the ETS system, it would actually benefit firms, installations and even the economy is also accurate.
 
 ### Predictions
 
-We will not be using all of our models to make predictions. The autocorrelation figures for the no pooling models were especially egregious. So we will make predictions using the complete pooling model(which included oil and FTSE) and the partial pooling model. We will also use the stand-alone EU only auctions model to predict EU auction prices. 
+We will not be using all of our models to make predictions. The autocorrelation figures for the no pooling models were especially egregious. So we will make predictions using the complete pooling model(which included oil and FTSE) and the partial pooling model. We will also use the stand-alone EU only auctions model to predict EU auction prices.
 
+Let's start with the complete pooling model:
 
+```{r}
 
+ets_predictions_data<- ets_training_data|> mutate(
+                  Auction_Price_fd = `Auction Price €/tCO2`- Auction_Price_lag,
+                  Max_bid_fd = `Maximum Bid €/tCO2` - Max_bid_lag,
+                  Avg_bids_fd= `Average number of bids per bidder` - Avg_num_bids_per_bidder_lag,
+                  Auction_vol_fd = `Auction Volume tCO2`- Auction_vol_lag,
+                  oil_price_fd = oil_price - oil_price_lag_overall,
+                  ftse_price_fd = ftse_price -ftse_price_lag_overall
+) |> mutate(
+  Auction_vol_fd = Auction_vol_fd/100000
+) |> select(Auction_Price_fd, Max_bid_fd,Avg_bids_fd, Auction_vol_fd, oil_price_fd, ftse_price_fd)
+
+predictions_complete_pooling<- predict(complete_pooling_fit_lag_adj,ets_training_data )
+lagged_Auction_prices<- ets_training_data$`Auction Price €/tCO2`[2,length(ets_training_data$`Auction Price €/tCO2`)]
+lagged_auction_prices<- 
+
+mse_data_frame<- data.frame(ets_training_data$Auction_Price,predictions_complete_pooling
+
+```
