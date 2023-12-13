@@ -526,17 +526,23 @@ ets_first_diff<-ets_first_diff |> mutate(
 )
 ```
 
-## Abstract
+### Abstract
 
-The EU Cap and Trade system allows industrial placements, corporations and other eligible participants to auction off or purchase CO2 emissions allowances in the event of their having excess allowances or needing more allowances to avoid breaching their cap. This report endevors to look at variables dictating the auctions themselves and outside factors to predict the auction price and to establish to some extent whether booming business and industry relates to premiums on continued emissions of CO2 equivalents as measured by auction price.
+The EU Cap and Trade policy's Emissions Trade System allows industrial placements, corporations and other eligible participants to auction off or purchase CO2 emissions allowances in the event of their having excess allowances or needing more allowances to avoid breaching their cap. This report endeavors to look at variables dictating the auctions themselves and outside factors to predict the auction price and establishes to some extent that booming business and industry relate to premiums on continued emissions of CO2 equivalents as measured by auction price.
 
-## Introduction
+### Introduction
 
-### The EU Cap and Trade System
+#### The EU Cap and Trade System
+The cap-and-trade regulation allows companies/factories/ power plants a certain allowance of emissions under a total allowance for each year. One allowance equates to a ton of CO2 or equivalent amount of other greenhouse gas.  A large percent of this allowance is provided to the organizations in question, free of charge and this constitutes their respective caps. For example, the allowance the EU set for carbon emissions across the aviation industry in 2021 was 24.5 million, i.e., 24.5 million tons of CO2. 20.7 million was issued for free, and the amount that each entity received constituted its ‘cap’ on emissions. The remaining 3.8 million allowances were auctioned.  Heavy fines are levied by the EU on any entity that breaches its cap. 
 
-### Why predict Auction Price?
+The auctions are structured as follows: The bids are sorted in descending order of price. The bid volumes are added up going down that list and the price at which the total volume bid for crosses the total available volume of tons of CO2 emissions allowed is the clearing price(the Auction Price. )
 
-## Data - Sources and Initial Analysis:
+#### Why predict Auction Price?
+
+Auction price here is both reflective of the value of CO2 emissions - an especially apt concept to look at considering society's continuing struggles to fight and in some cases even accept, climate change - and the quirks of energy markets and the opinions of economic naysayers who in the name of growtha t all costs condemn themselves to a sort of climate luddit-ism. 
+
+
+### Data - Sources and Initial Analysis:
 
 The EU Emissions Trading System data I've used here comes from the website of the EEX (European Energy Exchange), the exchange licensed to run these auctions. The data goes back to 2017.
 
