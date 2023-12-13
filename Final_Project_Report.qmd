@@ -582,7 +582,8 @@ To further narrow down which variables we might use, correlation matrices were c
 ```{r}
 #| echo: false
 #| message: false
-#| output: false
+#| warning: false
+
 eu_cor_frame<- ets_modeling_data |> select(`Auction Price €/tCO2`,`Auction Volume tCO2`, `Maximum Bid €/tCO2`,`Average number of bids per bidder`,
                                     oil_price, ftse_price) 
 
@@ -739,7 +740,7 @@ durbinWatsonTest(complete_pooling_fit_lag_adj)
 
 ```
 
-We can see that this model is much better. We have an almost acceptable Durbin Watson test statistic now(the exercise of refining this statistic even further is beyond the scope of this paper). Nevertheless we cannot reject the null hypothesis of the test that there is positive autocorrelation. Perhaps our other models will do much better.
+We can see that this model is much better. We have an almost acceptable Durbin Watson test statistic now(the exercise of refining this statistic even further is beyond the scope of this paper). Nevertheless we cannot reject the null hypothesis of the test that there is positive autocorrelation. Perhaps our other models will do better.
 
 What about the coefficients?
 
@@ -789,7 +790,13 @@ res<- resid(complete_pooling_fit_lag_adj)
 plot(fitted(complete_pooling_fit_lag_adj),res)+abline(0,0)
 ```
 
-We can see that now, adjusting for lag, only the Maximum bid price is significant. The residuals look much better and seem to be indicative of independent error terms. However they are quite large which means this model might not be the best as far as performance goes. Let's repeat this procedure but leave out auction level predictors.
+We can see that now, adjusting for lag, only the Maximum bid price is significant. The residuals look much better and seem to be indicative of independent error terms. However they are quite large which means this model might not be the best as far as performance goes. 
+
+The interpretation of these coefficients is as follows, using that of Max_bid_fd as an example:
+
+For a difference in the change in max bid relative to the last maximum bid price of 1 euro, the Auction price is 0.24 euros higher than the Auction price if there was no difference between current maximum bid price and the previous maximum bid price. 
+
+It is important to note that the outcome variable now is the first difference in auction price. 
 
 ```{r}
 #| echo: false
@@ -820,7 +827,11 @@ The residuals are largely as they should be but we still see a *lot of outliers*
 
 However I would be loathe to leave those out at this juncture simply because for the period of prediction (and for the forseeable future and even conceivably, one could argue for any substantive economic horizon with the volatility we see today) the 'events' that these outliers describe continue to occur if not with any level of frequency. All the same, *I think the influence of these points on our regression is something I would not want to leave out without significant further investigation*.
 
-Another potential cause of these outliers is that our data actually involves data from four distinct auctions covered under the EU ETS system: - EU Auctions - German Auctions - Polish Auctions - Aviation Allowance Auctions.
+Another potential cause of these outliers is that our data actually involves data from four distinct auctions covered under the EU ETS system: 
+-   EU Auctions 
+-   German Auctions
+-   Polish Auctions 
+-   Aviation Allowance Auctions.
 
 To deal with these groups in our data, a multi level modelling appraoch was warranted. We will first build no pooling versions of the models above, compare them and then move on to a partial pooling approach. All along the way, we followed the same first differences approach as shown above. In the cases where intercept was not significant we didn't need to follow the process of adjusting it as we did above.
 
@@ -828,7 +839,7 @@ To deal with these groups in our data, a multi level modelling appraoch was warr
 
 #### Another quick aside: On lags
 
-Before we get stuck into the weeds with these, it's important to have a quick discussion about lags: For the folowing data, lag has to be recalculated and adjusted as we cannot just subset the lags from the entire dataset and have them line up correctly.
+Before we get stuck into the weeds with these, it's important to have a quick discussion about lags: For the following data, lag has to be recalculated and adjusted as we cannot just subset the lags from the entire dataset and have them line up correctly.
 
 #### Back to regularly scheduled programming:
 
@@ -1056,7 +1067,7 @@ coef(partial_pool_fit_intercept_only)
 
 ```
 
-This model is really interesting. We can see that Max Bid price, Auction volume, oil price and FTSE price are all significant by examining the standard errors. Further, the Fixed efects are fascinating because we can see that Aviation Auctions have a much higher average price than the other types of CO2 allowance auctions.
+This model is really interesting. We can see that Max Bid price, Auction volume, oil price and FTSE price are all significant by examining the standard errors. Further, the Fixed effects are fascinating because we can see that Aviation Auctions have a much higher average price than the other types of CO2 allowance auctions and also that EU auctions are, on average lower priced than others. 
 
 What if we try and vary the slope of the significant variables in the above regression. We can see from the size of the random effects in the above regression that we're likely to get a warning that our random effects are very small :
 
@@ -1099,9 +1110,12 @@ Before we jump into using our models to predict Auction prices, I think a brief 
 
 -   However, our models are generally plagued by autocorrelation with the exception of the EU only auction model. This isn't all bad news because it tells us that, barring the use of more sophisticated time series analysis, a regression model can model only EU auctions well and not German, Polish or EUAA auctions or perhaps even the whole ETS system.
 
--   The significance of Oil Prices is telling when related to the literature reviewed in preparation for this analysis. Bayer and Alkin(https://www.pnas.org/doi/10.1073/pnas.1918128117) found that the ETS system reduced CO2 emissions despite low prices. Now that prices are much, much higher and clearly driven both by Oil prices we can say(although not with definite certainty but with a certain level of confidence) that the emission reduction effect of the ETS system and the climate change combating priorities it espouses have found their way into the attitude of firms and installations. That is to say, the premium on continued emissions, driven by larger costs of energy production and use, has had a positive effect on the goals of this energy market and the authors' assertion that initially low prices for CO2 allowances in no way spelled doom for the ETS market or for the EU's climate goals appears to be borne out.
+-   The significance of Oil Prices is telling when related to the literature reviewed in preparation for this analysis. Bayer and Alkin
+(https://www.pnas.org/doi/10.1073/pnas.1918128117) found that the ETS system reduced CO2 emissions despite low prices. Now that prices are much, much higher and clearly driven both by Oil prices we can say(although not with definite certainty but with a certain level of confidence) that the emission reduction effect of the ETS system and the climate change combating priorities it espouses have found their way into the attitude of firms and installations. That is to say, the premium on continued emissions, driven by larger costs of energy production and use, has had a positive effect on the goals of this energy market and the authors' assertion that initially low prices for CO2 allowances in no way spelled doom for the ETS market or for the EU's climate goals appears to be borne out.
 
--   We can also say, from the fact that we keep seeing FTSE as a consistent predictor of Auction Price that Dechezlepretre, Nachtigall and Venmans (https://www.sciencedirect.com/science/article/pii/S0095069622001115) contention that despite what critics of the EU's cap and Trade system had to say about the detrimental economic effect of the ETS system, it would actually benefit firms, installations and even the economy is also accurate.
+-   We can also say, from the fact that we keep seeing FTSE as a consistent predictor of Auction Price that Dechezlepretre, Nachtigall and Venmans
+(https://www.sciencedirect.com/science/article/pii/S0095069622001115) 
+contention that despite what critics of the EU's cap and Trade system had to say about the detrimental economic effect of the ETS system, it would actually benefit firms, installations and even the economy is also accurate.
 
 ### Predictions
 
@@ -1239,3 +1253,13 @@ This project also aimed to see if we could quantify the premium placed by pollut
 We can also say that the authors of the two papers that I referred to as constituting the primary literature review for this paper were quite prescient in their predictions. Namely that 1) As Bayer and Alkin predicted the EU ETS market's initial low prices did not spell doom for it and in addition to a continuing decline in emissions, prices are at a healthy rate driven by a spike in oil prices and in economic performance. 2) Dechezlepretre and Venmans predictions that the EU ETS would not negatively impact economic performance were also quite right in as much as economic performance seems to also be a statistically significant driver of the prices in this energy market which would not have been the case had the naysayers been true. This finding - that growth would spur the ETS market was explicitly suggested by the authors of that paper. 
 
 So for future work, I would like to refine this work by improving the time series analysis component, although I hope the hierarchical modeling and general statistical modeling nous displayed here stands up. Further It would be nice to add CO2 emissions as a predictor( although I would need to account for the cyclical nature of those both over a year and over a week).
+
+
+### Cited Literature:
+-     The joint impact of the European Union emissions trading system on carbon emissions and economic performance, Dechezlepretre, Nachtigall and Venmans
+-     The European Union Emissions Trading System reduced CO2 emissions despite low prices, Bayer and Alkin
+
+For time series:
+
+-   https://online.stat.psu.edu/stat462/node/189/
+-   https://www.econometrics-with-r.org/14.3-autoregressions.html
