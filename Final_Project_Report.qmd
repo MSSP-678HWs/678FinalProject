@@ -528,18 +528,21 @@ ets_first_diff<-ets_first_diff |> mutate(
 
 ### Abstract
 
-The EU Cap and Trade policy's Emissions Trade System allows industrial placements, corporations and other eligible participants to auction off or purchase CO2 emissions allowances in the event of their having excess allowances or needing more allowances to avoid breaching their cap. This report endeavors to look at variables dictating the auctions themselves and outside factors to predict the auction price and establishes to some extent that booming business and industry relate to premiums on continued emissions of CO2 equivalents as measured by auction price.
+The European Union's Cap and Trade policy's Emissions Trade System allows industrial placements, corporations and other eligible participants to auction off or purchase CO2 emissions allowances in the event of their having excess allowances or needing more allowances to avoid breaching their cap. This report endeavors to look at variables dictating the auctions themselves and outside factors to predict the auction price. It also establishes, to some extent, that booming business and industry relate to premiums on continued emissions of CO2 equivalents as measured by auction price.
 
 ### Introduction
 
 #### The EU Cap and Trade System
-The cap-and-trade regulation allows companies/factories/ power plants a certain allowance of emissions under a total allowance for each year. One allowance equates to a ton of CO2 or equivalent amount of other greenhouse gas.  A large percent of this allowance is provided to the organizations in question, free of charge and this constitutes their respective caps. For example, the allowance the EU set for carbon emissions across the aviation industry in 2021 was 24.5 million, i.e., 24.5 million tons of CO2. 20.7 million was issued for free, and the amount that each entity received constituted its ‘cap’ on emissions. The remaining 3.8 million allowances were auctioned.  Heavy fines are levied by the EU on any entity that breaches its cap. 
+
+The cap-and-trade regulation allows companies, factories and power plants a certain allowance of emissions under a total allowance for each year. One allowance equates to a ton of CO2 or equivalent amount of other greenhouse gas.  A large percent of this allowance is provided to the organizations in question, free of charge and this constitutes their respective caps. For example, the allowance the EU set for carbon emissions across the aviation industry in 2021 was 24.5 million, i.e., 24.5 million tons of CO2. 20.7 million was issued for free, and the amount that each entity received constituted its ‘cap’ on emissions. The remaining 3.8 million allowances were auctioned.  Heavy fines are levied by the EU on any entity that breaches its cap - in the order of a 100 Euros per ton of CO2 equivalent emitted above the cap. 
+
+It is important to note that these are CO2 equivalents and so emitting a gas with greater greenhouse effects than CO2 would be penalized by converting it to equivalent tons of CO2 and punishing the breach accordingly. 
 
 The auctions are structured as follows: The bids are sorted in descending order of price. The bid volumes are added up going down that list and the price at which the total volume bid for crosses the total available volume of tons of CO2 emissions allowed is the clearing price(the Auction Price. )
 
 #### Why predict Auction Price?
 
-Auction price here is both reflective of the value of CO2 emissions - an especially apt concept to look at considering society's continuing struggles to fight and in some cases even accept, climate change - and the quirks of energy markets and the opinions of economic naysayers who in the name of growtha t all costs condemn themselves to a sort of climate luddit-ism. 
+Auction price here is both reflective of the value of CO2 emissions - an especially apt concept to look at considering society's continuing struggles to fight and in some cases even accept, climate change - and the quirks of energy markets and their continued success and usefullness even in the face of opinions of naysayers who in the name of economic growth at all costs condemn themselves to a sort of Climate Luddite-ism. 
 
 
 ### Data - Sources and Initial Analysis:
@@ -601,6 +604,8 @@ Graph 1 above might have given you pause and made you think "Hold on, doesn't th
 ```{r}
 #| echo: false
 #| message: false
+#| warning: false
+
 ets_modeling_data<- na.omit(ets_modeling_data)
 pacf(ets_modeling_data$`Auction Price €/tCO2`,lag=10, pl=TRUE, main="Graph 2 :
      Partial Autocorrelation for Auction Price €/tCO2")
@@ -639,10 +644,10 @@ Strictly speaking, we still have autocorrelation in multiple points above the le
 #| message: false
 pacf(ets_modeling_data$`Average number of bids per bidder`- ets_modeling_data$Avg_num_bids_per_bidder_lag,
                lag=10, pl=TRUE, main= "Graph 7:
-     Partial Autocorrelation in lag adjusted average number of bids per bidder")
+     Partial Autocorrelation in \nlag adjusted average number of bids per bidder")
 pacf(ets_modeling_data$`Auction Volume tCO2`- ets_modeling_data$Auction_vol_lag,
 lag = 10, pl = TRUE, main = "Graph 8: 
-     Partial Autocorrelation in lag adjusted Average volume in tons of CO2")
+     Partial Autocorrelation in \nlag adjusted Average volume in tons of CO2")
 ```
 
 ## Modeling Auction Price
@@ -655,7 +660,7 @@ We evaluate two models at each step: The first including auction variables and o
 
 ### A simple linear regression:
 
-The first model we run will be a simple linear regression, however, just to demonstrate the handling of time-series here we are going to run one regression without adjusting our variables by their lags and display the Durbin Watson statistic for that to demonstrate just how untenable a basic model is. Then we will adjust the variables using the first differences procedure.
+The first model we run will be a simple linear regression. However, just to demonstrate the handling of time-series here we are going to run one regression without adjusting our variables by their lags and display the Durbin Watson statistic for that to demonstrate just how untenable a basic model is. Then we will adjust the variables using the first differences procedure.
 
 ```{r}
 #| echo: false
@@ -687,7 +692,7 @@ summary(fit_no_lag)
 durbinWatsonTest(fit_no_lag)
 ```
 
-We see the results of a simple linear regression. The coefficients for all but ftse price are significant and can be interpreted pretty easily. For a difference in Maximum bid price of 1 euro the auction price is higher by 0.87 euros. Since ftse price is transformed by dividing by a hundred, we can interpret that coefficient by saying for a hundred point difference in FTSE the auction price of CO2 allowances is 0.03 euros higher. For the log auction volume variable: For a difference in auction volume of 1%, the Auction price for CO2 allowances per ton is 0.0129 euros lower.
+We see the results of a simple linear regression. The coefficients for all but FTSE price are significant and can be interpreted pretty easily. For a difference in Maximum bid price of 1 euro the auction price is higher by 0.87 euros. Since ftse price is transformed by dividing by a hundred, we can interpret that coefficient by saying for a hundred point difference in FTSE the auction price of CO2 allowances is 0.03 euros higher. For the log auction volume variable: For a difference in auction volume of 1%, the Auction price for CO2 allowances per ton is 0.0129 euros lower.
 
 However, the Durbin Watson statistic is 1.275 and we see significant autocorrelation. It's easier to see what this means for the model by examining the residual plot:
 
@@ -1189,7 +1194,6 @@ So that model also does not do very well in predicting our CO2 auction prices. W
 ###### Partial Pooling model
 
 ```{r}
-
 #| echo: false
 #| message: false
 #| warning: false
