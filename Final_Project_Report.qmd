@@ -546,7 +546,7 @@ A quick examination of the EU ETS(EU Emissions Trading System) data reveals that
     -   Further, averages might more readily reflect behavior individual parties in the auction might adapt. For example, if having a larger volume per bid seems to lower price, it would be in the interest of parties to bid in higher volumes although there would naturally be a point when total cost and per unit cost would need to be balanced.
     -   Variables such as average bid per bidder and average volume per bidder are also interesting because it could be reasonably argued that they are representative of the level of demand for the CO2 allowances being auctioned. Similarly Auction Volume isn't just representative of supply - it is the supply. These two components are important, from a basic economic theory standpoint in predicting price, even auction price here.
     -   One of the variables I'm especially interested in is the Maximum bid price. This is a really interesting variable because it seems that bidding really high is a viable method to win the auction as the auction clearing price is always resolved beneath the highest bid and the structure of the auction(see introduction above) would guarantee the highest bidder the allowances they seek.
--   The other goal of this analysis is to see how economic performance for corporations affects CO2 allowance prices and whether this is at all reflective of incentives to reduce emissions.
+-   The other goal of this analysis is to see how economic performance for corporations affects CO2 allowance prices and whether this is at all reflective of incentives to reduce emissions. What is the premium placed by corporations on polluting?
 
 To address the second goal of this analysis, data for the European Price of Brent Crude Oil in dollars per barrel was added, both as a measure of the prevailing price environment but also as an economic measure of costs for the installations and corporations covered by the Cap and Trade Regulation.
 
@@ -1096,11 +1096,33 @@ Before we jump into using our models to predict Auction prices, I think a brief 
 
 We will not be using all of our models to make predictions. The autocorrelation figures for the no pooling models were especially egregious. So we will make predictions using the complete pooling model(which included oil and FTSE) and the partial pooling model. We will also use the stand-alone EU only auctions model to predict EU auction prices.
 
+A quick note on the methodology for this: We will use the predict function and the test data we had set aside(data after July 8 2022) to get predicted values. However since these are 'first difference' values, we need to add the lagged auction prices to get the actual predicted auction price values. This is compared with the actual values and a mean squared error is calculated. How do we compare this with the null model? A good indicator would be to just use the lagged data as a prediction. This will be our null model. 
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+Auction_Price_lag<- ets_test_data$`Auction Price €/tCO2`[1:length(ets_test_data$`Auction Price €/tCO2`)-1]
+
+Auction_Price_lag<- c(ets_training_data$`Auction Price €/tCO2`[length(ets_training_data$`Auction Price €/tCO2`)],Auction_Price_lag)
+
+mse_data_frame<- data.frame(ets_test_data$`Auction Price €/tCO2`, Auction_Price_lag)
+mse_null<- mean((mse_data_frame$ets_test_data..Auction.Price...tCO2. - mse_data_frame$Auction_Price_lag)^2)
+
+mse_null
+
+```
+
+
 Let's start with the complete pooling model:
 
 ```{r}
+#| echo: false
+#| message: false
+#| warning: false
 
-ets_predictions_data<- ets_training_data|> mutate(
+ets_predictions_data<- ets_test_data|> mutate(
                   Auction_Price_fd = `Auction Price €/tCO2`- Auction_Price_lag,
                   Max_bid_fd = `Maximum Bid €/tCO2` - Max_bid_lag,
                   Avg_bids_fd= `Average number of bids per bidder` - Avg_num_bids_per_bidder_lag,
@@ -1111,10 +1133,99 @@ ets_predictions_data<- ets_training_data|> mutate(
   Auction_vol_fd = Auction_vol_fd/100000
 ) |> select(Auction_Price_fd, Max_bid_fd,Avg_bids_fd, Auction_vol_fd, oil_price_fd, ftse_price_fd)
 
-predictions_complete_pooling<- predict(complete_pooling_fit_lag_adj,ets_training_data )
-lagged_Auction_prices<- ets_training_data$`Auction Price €/tCO2`[2,length(ets_training_data$`Auction Price €/tCO2`)]
-lagged_auction_prices<- 
+predictions_complete_pooling<- predict(complete_pooling_fit_lag_adj,ets_predictions_data )
 
-mse_data_frame<- data.frame(ets_training_data$Auction_Price,predictions_complete_pooling
+
+mse_data_frame<- data.frame(ets_test_data$Auction_Price,predictions_complete_pooling+Auction_Price_lag)
+
+
+mse_complete_pooling_pred<- mean((mse_data_frame$ets_test_data.Auction_Price- mse_data_frame$predictions_complete_pooling...Auction_Price_lag)^2)
+
+mse_complete_pooling_pred
+mean_auction_price_test<- mean(ets_test_data$`Auction Price €/tCO2`)
+```
+
+Okay, so we have our mean squared error for the complete pooling model. A mean squared error of 31 is pretty atrocious relative to the 4 that we got for the null model.  
+
+Let's try the other models:
+
+###### The EU only auction model:
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+ets_EU<- ets_test_data |> filter(AuctionType=="EU")
+ets_EU_predictions<- ets_test_data|> mutate(
+                  Auction_Price_fd = `Auction Price €/tCO2`- Auction_Price_lag,
+                  Max_bid_fd = `Maximum Bid €/tCO2` - Max_bid_lag,
+                  Avg_bids_fd= `Average number of bids per bidder` - Avg_num_bids_per_bidder_lag,
+                  Auction_vol_fd = `Auction Volume tCO2`- Auction_vol_lag,
+                  oil_price_fd = oil_price - oil_price_lag_overall,
+                  ftse_price_fd = ftse_price -ftse_price_lag_overall
+) |> mutate(
+  Auction_vol_fd = Auction_vol_fd/100000
+) |> filter(AuctionType=="EU") |> select(Auction_Price_fd, Max_bid_fd,Avg_bids_fd, Auction_vol_fd, oil_price_fd, ftse_price_fd)
+
+Auction_Price_lag_EU<- ets_EU$`Auction Price €/tCO2`[1:length(ets_EU$`Auction Price €/tCO2`)-1]
+
+Auction_Price_lag_EU<- c(ets_training_data$`Auction Price €/tCO2`[length(ets_training_data$`Auction Price €/tCO2`)],Auction_Price_lag_EU)
+
+predictions_EU_no_pooling<- predict(EU_no_pool_fit,ets_EU_predictions)
+
+mse_EU_no_pooling<- mean((predictions_EU_no_pooling+Auction_Price_lag_EU -ets_EU$`Auction Price €/tCO2`)^2)
+mse_EU_no_pooling
 
 ```
+So that model also does not do very well in predicting our CO2 auction prices. We will try our partial pooling model too now, though I do not hold high hopes. 
+
+###### Partial Pooling model
+
+```{r}
+
+#| echo: false
+#| message: false
+#| warning: false
+
+ets_predictions_data<- ets_test_data|> mutate(
+                  Auction_Price_fd = `Auction Price €/tCO2`- Auction_Price_lag,
+                  Max_bid_fd = `Maximum Bid €/tCO2` - Max_bid_lag,
+                  Avg_bids_fd= `Average number of bids per bidder` - Avg_num_bids_per_bidder_lag,
+                  Auction_vol_fd = `Auction Volume tCO2`- Auction_vol_lag,
+                  oil_price_fd = oil_price - oil_price_lag_overall,
+                  ftse_price_fd = ftse_price -ftse_price_lag_overall
+) |> mutate(
+  Auction_vol_fd = Auction_vol_fd/100000
+) |> select(AuctionType,Auction_Price_fd, Max_bid_fd,Avg_bids_fd, Auction_vol_fd, oil_price_fd, ftse_price_fd)
+
+predictions_partial_pooling<- predict(partial_pool_fit_intercept_only,ets_predictions_data )
+
+mse_EU_no_pooling<- mean((predictions_partial_pooling+Auction_Price_lag_EU -ets_test_data$`Auction Price €/tCO2`)^2)
+
+mse_EU_no_pooling
+```
+
+This one performs the worst of the lot. 
+
+### Conclusions from Predictions
+
+All the models we looked at seemed to perform significantly worse than the null model which is to just look at the price from the last auction. This is frequently an issue with AR(1) data - you're much more likely to predict todays closing price by guessing yesterdays than by making a model - especially the sort of model used here which was hamstrung by my limited knowledge of Time Series Analysis at the time of writing. 
+
+It's not all glum news however. The significance of Oil Prices, FTSE and Max Bids across a variety of models can give us valuable information: 
+
+-   Firstly, since the maximum bid is a good indicator of Auction Price (barring lag of course), we can surmise something about how to optimize behavior to win a CO2 allowance auction: Knowing the price of the last auction, firms can decide the premium they want to pay to guarantee they clear the auction as every dollar over the last maximum auction price will raise the auction price by 0.23 euros (as indicated by our best predicting model). This is information the null model doesn't give. We can work backwards from the same and say that high maximum bid prices are generally indicative of a wish on that buyers part to guarantee an auction win and we can quantify that value using that model. While our model isn't as good at predicting, it can do a reasonable job of answering the second goal of this analysis because we can use it to determine just what value firms place on continuing to pollute given the assumption that those trying to guarantee an auction win are likely to be looking to exceed their allocated allowances. 
+
+-   Second, we can see that oil and stock indices can be good indicators of movement in Auction prices over the long term and can in fact drive some of that movement. 
+
+### Closing Remarks and Future Work:
+
+To summarize:
+
+This project set out to identify strategies for participants in EU ETS auctions. This was met in part in that we can safely say that we can use our first complete pooling model to show the relative clearing prices of an auction given particular maximum bid prices. The error for this is in the order of 5 to 6 euros per ton of CO2 which isn't fantastic but isn't particularly terrible either especially in cases where the alternative might mean paying a 100 euro fine per ton of CO2. 
+
+This project also aimed to see if we could quantify the premium placed by polluting corporations and fixtures on continued emissions and certainly that can be modeled using maximum bid prices in relation to oil and market prices. Again, the error rate and precision of the prediction is perhaps a little wanting but that can be rectified with *further time series analysis which would be lovely to undertake as a future companion to this piece.*
+
+We can also say that the authors of the two papers that I referred to as constituting the primary literature review for this paper were quite prescient in their predictions. Namely that 1) As Bayer and Alkin predicted the EU ETS market's initial low prices did not spell doom for it and in addition to a continuing decline in emissions, prices are at a healthy rate driven by a spike in oil prices and in economic performance. 2) Dechezlepretre and Venmans predictions that the EU ETS would not negatively impact economic performance were also quite right in as much as economic performance seems to also be a statistically significant driver of the prices in this energy market which would not have been the case had the naysayers been true. This finding - that growth would spur the ETS market was explicitly suggested by the authors of that paper. 
+
+So for future work, I would like to refine this work by improving the time series analysis component, although I hope the hierarchical modeling and general statistical modeling nous displayed here stands up. Further It would be nice to add CO2 emissions as a predictor( although I would need to account for the cyclical nature of those both over a year and over a week).
