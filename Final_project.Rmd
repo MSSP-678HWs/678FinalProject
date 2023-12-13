@@ -1,0 +1,1265 @@
+---
+title: "Predicting Auction price for CO2 Allowances under EU Cap and Trade Emissions Trading System (ETS)"
+subtitle: "MA678 Final Project Report Fall 2023"
+author: "Ajay Krishnakumar"
+format: pdf
+editor: visual
+---
+
+```{r}
+#| echo: false
+#| message: false
+knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+library(tseries)
+library(ggplot2)
+library(tidyverse)
+library(reshape2)
+library(car)
+library(lubridate)
+library(lme4)
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| output: false
+#Reading in the documents I need:
+brent_crude_prices<- read_excel("brent_crude_prices.xlsx")
+co2_emissions_data<-read.csv("co2_emission.csv")
+ftse<- read.csv("FTSE 100 Historical Data.csv")
+eu_ets_data<-read_excel("EU-ETS-data.xlsx")
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| output: false
+#Converting dates to the right format so I can join them:
+eu_ets_data$Date<- as.Date(eu_ets_data$Date)
+brent_crude_prices$Date<- as.Date(brent_crude_prices$Date)
+ftse$Date<- mdy(ftse$Date)
+ftse$Price<- as.numeric(str_replace(ftse$Price,",",""))
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| output: false
+#Joining the three data frames:
+auction_and_oil<- merge(x=eu_ets_data,y=brent_crude_prices, 
+                         by="Date", all.x=TRUE) 
+
+auction_and_oil<-auction_and_oil |> filter(is.na(auction_and_oil$`Europe Brent Spot Price FOB (Dollars per Barrel)`)==FALSE)
+
+oil_prices<- auction_and_oil$`Europe Brent Spot Price FOB (Dollars per Barrel)`
+#pacf(oil_prices, lag=10, pl=TRUE)
+
+ets_stock_and_oil_data<- merge(x=auction_and_oil, y= ftse, by='Date', all.x=TRUE)
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| output: false
+#First let's change auction name to just have EU, DE, PL or EUAA:
+
+ets_stock_and_oil_data<- ets_stock_and_oil_data |> mutate(
+                AuctionType = ifelse(str_detect(`Auction Name`, "EUAA")==TRUE,
+                                                                        "EUAA",
+                                                    str_sub(`Auction Name`,-2,)
+), .after=`Auction Name`)
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| output: false
+
+#Setting up lags, starting with EU_only_auction:
+EU_only_auction<- ets_stock_and_oil_data |> filter(AuctionType=="EU") |> filter(
+                                          is.na(`Auction Price €/tCO2`)==FALSE
+)
+eu_only_auction_price<-EU_only_auction$`Auction Price €/tCO2`
+
+#pacf(eu_only_auction_price, lag=10, pl=TRUE)
+
+#Auction Price Lag
+Auction_Price_lag<- EU_only_auction$`Auction Price €/tCO2`[1:length(EU_only_auction$`Auction Price €/tCO2`)-1]
+Auction_Price_lag<- c(0,Auction_Price_lag)
+EU_only_with_lag<- EU_only_auction |> mutate(
+                                          Auction_Price_lag= Auction_Price_lag, .after=`Auction Price €/tCO2`
+)
+
+#Maximum bid lag
+Max_bid_lag<- EU_only_auction$`Maximum Bid €/tCO2`[1:length(EU_only_auction$`Maximum Bid €/tCO2`)-1]
+Max_bid_lag<- c(0,Max_bid_lag)
+EU_only_with_lag<- EU_only_with_lag |> mutate(
+                                          Max_bid_lag= Max_bid_lag, .after=`Maximum Bid €/tCO2`
+)
+
+#Avg bids per bidder lag
+Avg_num_bids_per_bidder_lag<- EU_only_auction$`Average number of bids per bidder`[1:length(EU_only_auction$`Average number of bids per bidder`)-1]
+Avg_num_bids_per_bidder_lag<- c(0,Avg_num_bids_per_bidder_lag)
+EU_only_with_lag<- EU_only_with_lag |> mutate(
+                                          Avg_num_bids_per_bidder_lag= Avg_num_bids_per_bidder_lag, .after=`Average number of bids per bidder`
+)
+
+#Avg vol per bidder
+Avg_vol_per_bidder_lag<- EU_only_auction$`Average volume bid per bidder`[1:length(EU_only_auction$`Average volume bid per bidder`)-1]
+Avg_vol_per_bidder_lag<- c(0,Avg_vol_per_bidder_lag)
+EU_only_with_lag<- EU_only_with_lag |> mutate(
+                                          Avg_vol_per_bidder_lag= Avg_vol_per_bidder_lag, .after=`Average volume bid per bidder`
+)
+
+#oil price lag
+EU_only_with_lag<- EU_only_with_lag |> rename(
+                        oil_price = `Europe Brent Spot Price FOB (Dollars per Barrel)`
+)
+oil_price_lag<- EU_only_with_lag$oil_price[1:length(EU_only_with_lag$oil_price)-1]
+oil_price_lag<- c(0,oil_price_lag)
+EU_only_with_lag<- EU_only_with_lag |> mutate(
+                                          oil_price_lag= oil_price_lag, .after= oil_price
+)
+
+#ftse price lag:
+EU_only_with_lag<- EU_only_with_lag |> rename(
+                        ftse_price = Price
+)
+ftse_price_lag<- EU_only_with_lag$ftse_price[1:length(EU_only_with_lag$ftse_price)-1]
+ftse_price_lag<- c(0,ftse_price_lag)
+EU_only_with_lag<- EU_only_with_lag |> mutate(
+                                          ftse_price_lag= ftse_price_lag, .after= ftse_price
+)
+
+#Auction Volume tCO2 lag:
+
+Auction_vol_lag<- EU_only_auction$`Auction Volume tCO2`[1:length(EU_only_auction$`Auction Volume tCO2`)-1]
+Auction_vol_lag<- c(0,Auction_vol_lag)
+EU_only_with_lag<- EU_only_with_lag |> mutate(
+                                          Auction_vol_lag= Auction_vol_lag, .after=`Auction Volume tCO2`
+)
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| output: false
+#Setting up lag for German Auctions
+DE_only_auction<-ets_stock_and_oil_data |> filter(AuctionType=="DE") |> filter(
+                                          is.na(`Auction Price €/tCO2`)==FALSE
+)
+DE_only_auction_price<- DE_only_auction$`Auction Price €/tCO2`
+#pacf(DE_only_auction_price)
+
+
+#Auction Price Lag
+Auction_Price_lag<- DE_only_auction$`Auction Price €/tCO2`[1:length(DE_only_auction$`Auction Price €/tCO2`)-1]
+Auction_Price_lag<- c(0,Auction_Price_lag)
+DE_only_with_lag<- DE_only_auction |> mutate(
+                                          Auction_Price_lag= Auction_Price_lag, .after=`Auction Price €/tCO2`
+)
+
+#Maximum bid lag
+Max_bid_lag<- DE_only_auction$`Maximum Bid €/tCO2`[1:length(DE_only_auction$`Maximum Bid €/tCO2`)-1]
+Max_bid_lag<- c(0,Max_bid_lag)
+DE_only_with_lag<- DE_only_with_lag |> mutate(
+                                          Max_bid_lag= Max_bid_lag, .after=`Maximum Bid €/tCO2`
+)
+
+#Avg bids per bidder lag
+Avg_num_bids_per_bidder_lag<- DE_only_auction$`Average number of bids per bidder`[1:length(DE_only_auction$`Average number of bids per bidder`)-1]
+Avg_num_bids_per_bidder_lag<- c(0,Avg_num_bids_per_bidder_lag)
+DE_only_with_lag<- DE_only_with_lag |> mutate(
+                                          Avg_num_bids_per_bidder_lag= Avg_num_bids_per_bidder_lag, .after=`Average number of bids per bidder`
+)
+
+#Avg vol per bidder
+Avg_vol_per_bidder_lag<- DE_only_auction$`Average volume bid per bidder`[1:length(DE_only_auction$`Average volume bid per bidder`)-1]
+Avg_vol_per_bidder_lag<- c(0,Avg_vol_per_bidder_lag)
+DE_only_with_lag<- DE_only_with_lag |> mutate(
+                                          Avg_vol_per_bidder_lag= Avg_vol_per_bidder_lag, .after=`Average volume bid per bidder`
+)
+
+#oil price lag
+DE_only_with_lag<- DE_only_with_lag |> rename(
+                        oil_price = `Europe Brent Spot Price FOB (Dollars per Barrel)`
+)
+oil_price_lag<- DE_only_with_lag$oil_price[1:length(DE_only_with_lag$oil_price)-1]
+oil_price_lag<- c(0,oil_price_lag)
+DE_only_with_lag<- DE_only_with_lag |> mutate(
+                                          oil_price_lag= oil_price_lag, .after= oil_price
+)
+
+#ftse price lag:
+DE_only_with_lag<- DE_only_with_lag |> rename(
+                        ftse_price = Price
+)
+ftse_price_lag<- DE_only_with_lag$ftse_price[1:length(DE_only_with_lag$ftse_price)-1]
+ftse_price_lag<- c(0,ftse_price_lag)
+DE_only_with_lag<- DE_only_with_lag |> mutate(
+                                          ftse_price_lag= ftse_price_lag, .after= ftse_price
+)
+
+#Auction Volume tCO2 lag:
+
+Auction_vol_lag<- DE_only_auction$`Auction Volume tCO2`[1:length(DE_only_auction$`Auction Volume tCO2`)-1]
+Auction_vol_lag<- c(0,Auction_vol_lag)
+DE_only_with_lag<- DE_only_with_lag |> mutate(
+                                          Auction_vol_lag= Auction_vol_lag, .after=`Auction Volume tCO2`
+)
+
+#Lag for Polish Auctions:
+PL_only_auction<-ets_stock_and_oil_data |> filter(AuctionType=="PL") |> filter(
+                                          is.na(`Auction Price €/tCO2`)==FALSE
+)
+PL_only_auction_price<- PL_only_auction$`Auction Price €/tCO2`
+#pacf(PL_only_auction_price)
+
+
+#Auction Price Lag
+Auction_Price_lag<- PL_only_auction$`Auction Price €/tCO2`[1:length(PL_only_auction$`Auction Price €/tCO2`)-1]
+Auction_Price_lag<- c(0,Auction_Price_lag)
+PL_only_with_lag<- PL_only_auction |> mutate(
+                                          Auction_Price_lag= Auction_Price_lag, .after=`Auction Price €/tCO2`
+)
+
+#Maximum bid lag
+Max_bid_lag<- PL_only_auction$`Maximum Bid €/tCO2`[1:length(PL_only_auction$`Maximum Bid €/tCO2`)-1]
+Max_bid_lag<- c(0,Max_bid_lag)
+PL_only_with_lag<- PL_only_with_lag |> mutate(
+                                          Max_bid_lag= Max_bid_lag, .after=`Maximum Bid €/tCO2`
+)
+
+#Avg bids per bidPLr lag
+Avg_num_bids_per_bidder_lag<- PL_only_auction$`Average number of bids per bidder`[1:length(PL_only_auction$`Average number of bids per bidder`)-1]
+Avg_num_bids_per_bidder_lag<- c(0,Avg_num_bids_per_bidder_lag)
+PL_only_with_lag<- PL_only_with_lag |> mutate(
+                                          Avg_num_bids_per_bidder_lag= Avg_num_bids_per_bidder_lag, .after=`Average number of bids per bidder`
+)
+
+#Avg vol per bidder
+Avg_vol_per_bidder_lag<- PL_only_auction$`Average volume bid per bidder`[1:length(PL_only_auction$`Average volume bid per bidder`)-1]
+Avg_vol_per_bidder_lag<- c(0,Avg_vol_per_bidder_lag)
+PL_only_with_lag<- PL_only_with_lag |> mutate(
+                                          Avg_vol_per_bidder_lag= Avg_vol_per_bidder_lag, .after=`Average volume bid per bidder`
+)
+
+#oil price lag
+PL_only_with_lag<- PL_only_with_lag |> rename(
+                        oil_price = `Europe Brent Spot Price FOB (Dollars per Barrel)`
+)
+oil_price_lag<- PL_only_with_lag$oil_price[1:length(PL_only_with_lag$oil_price)-1]
+oil_price_lag<- c(0,oil_price_lag)
+PL_only_with_lag<- PL_only_with_lag |> mutate(
+                                          oil_price_lag= oil_price_lag, .after= oil_price
+)
+
+#ftse price lag:
+PL_only_with_lag<- PL_only_with_lag |> rename(
+                        ftse_price = Price
+)
+ftse_price_lag<- PL_only_with_lag$ftse_price[1:length(PL_only_with_lag$ftse_price)-1]
+ftse_price_lag<- c(0,ftse_price_lag)
+PL_only_with_lag<- PL_only_with_lag |> mutate(
+                                          ftse_price_lag= ftse_price_lag, .after= ftse_price
+)
+
+#Auction Volume tCO2 lag:
+
+Auction_vol_lag<- PL_only_auction$`Auction Volume tCO2`[1:length(PL_only_auction$`Auction Volume tCO2`)-1]
+Auction_vol_lag<- c(0,Auction_vol_lag)
+PL_only_with_lag<- PL_only_with_lag |> mutate(
+                                          Auction_vol_lag= Auction_vol_lag, .after=`Auction Volume tCO2`
+)
+
+#Lag for EUAA Auctions:
+EUAA_only_auction<-ets_stock_and_oil_data |> filter(AuctionType=="EUAA") |> filter(
+                                          is.na(`Auction Price €/tCO2`)==FALSE
+)
+EUAA_only_auction_price<- EUAA_only_auction$`Auction Price €/tCO2`
+#pacf(EUAA_only_auction_price)
+
+
+#Auction Price Lag
+Auction_Price_lag<- EUAA_only_auction$`Auction Price €/tCO2`[1:length(EUAA_only_auction$`Auction Price €/tCO2`)-1]
+Auction_Price_lag<- c(0,Auction_Price_lag)
+EUAA_only_with_lag<- EUAA_only_auction |> mutate(
+                                          Auction_Price_lag= Auction_Price_lag, .after=`Auction Price €/tCO2`
+)
+
+#Maximum bid lag
+Max_bid_lag<- EUAA_only_auction$`Maximum Bid €/tCO2`[1:length(EUAA_only_auction$`Maximum Bid €/tCO2`)-1]
+Max_bid_lag<- c(0,Max_bid_lag)
+EUAA_only_with_lag<- EUAA_only_with_lag |> mutate(
+                                          Max_bid_lag= Max_bid_lag, .after=`Maximum Bid €/tCO2`
+)
+
+#Avg bids per bidPLr lag
+Avg_num_bids_per_bidder_lag<- EUAA_only_auction$`Average number of bids per bidder`[1:length(EUAA_only_auction$`Average number of bids per bidder`)-1]
+Avg_num_bids_per_bidder_lag<- c(0,Avg_num_bids_per_bidder_lag)
+EUAA_only_with_lag<- EUAA_only_with_lag |> mutate(
+                                          Avg_num_bids_per_bidder_lag= Avg_num_bids_per_bidder_lag, .after=`Average number of bids per bidder`
+)
+
+#Avg vol per bidder
+Avg_vol_per_bidder_lag<- EUAA_only_auction$`Average volume bid per bidder`[1:length(EUAA_only_auction$`Average volume bid per bidder`)-1]
+Avg_vol_per_bidder_lag<- c(0,Avg_vol_per_bidder_lag)
+EUAA_only_with_lag<- EUAA_only_with_lag |> mutate(
+                                          Avg_vol_per_bidder_lag= Avg_vol_per_bidder_lag, .after=`Average volume bid per bidder`
+)
+
+#oil price lag
+EUAA_only_with_lag<- EUAA_only_with_lag |> rename(
+                        oil_price = `Europe Brent Spot Price FOB (Dollars per Barrel)`
+)
+oil_price_lag<- EUAA_only_with_lag$oil_price[1:length(EUAA_only_with_lag$oil_price)-1]
+oil_price_lag<- c(0,oil_price_lag)
+EUAA_only_with_lag<- EUAA_only_with_lag |> mutate(
+                                          oil_price_lag= oil_price_lag, .after= oil_price
+)
+
+#ftse price lag:
+EUAA_only_with_lag<- EUAA_only_with_lag |> rename(
+                        ftse_price = Price
+)
+ftse_price_lag<- EUAA_only_with_lag$ftse_price[1:length(EUAA_only_with_lag$ftse_price)-1]
+ftse_price_lag<- c(0,ftse_price_lag)
+EUAA_only_with_lag<- EUAA_only_with_lag |> mutate(
+                                          ftse_price_lag= ftse_price_lag, .after= ftse_price
+)
+
+#Auction Volume tCO2 lag:
+
+Auction_vol_lag<- EUAA_only_auction$`Auction Volume tCO2`[1:length(EUAA_only_auction$`Auction Volume tCO2`)-1]
+Auction_vol_lag<- c(0,Auction_vol_lag)
+EUAA_only_with_lag<- EUAA_only_with_lag |> mutate(
+                                          Auction_vol_lag= Auction_vol_lag, .after=`Auction Volume tCO2`
+)
+
+#Merging, beginning with EU lag
+EU_lag<- EU_only_with_lag |> select('Date',
+                                    'AuctionType', 
+                                    'Auction_Price_lag',
+                                    'Max_bid_lag',
+                                    'Avg_num_bids_per_bidder_lag',
+                                    'Avg_vol_per_bidder_lag',
+                                    'Auction_vol_lag',
+                                    'oil_price_lag',
+                                    'ftse_price_lag'
+                                    )
+ets_EU_only_lag<- merge(x=ets_stock_and_oil_data, y= EU_lag, by=c('Date', 'AuctionType'), all.x=TRUE)
+ets_EU_only_lag<- ets_EU_only_lag |> select(-c(Open:Change..))
+
+
+lagColnamesVec<- c('Auction_Price_lag',
+                                    'Max_bid_lag',
+                                    'Avg_num_bids_per_bidder_lag',
+                                    'Avg_vol_per_bidder_lag',
+                                    'Auction_vol_lag',
+                                    'oil_price_lag',
+                                    'ftse_price_lag')
+
+#DE lag:
+DE_lag<- DE_only_with_lag |> select('Date',
+                                    'AuctionType', 
+                                    'Auction_Price_lag',
+                                    'Max_bid_lag',
+                                    'Avg_num_bids_per_bidder_lag',
+                                    'Avg_vol_per_bidder_lag',
+                                    'Auction_vol_lag',
+                                    'oil_price_lag',
+                                    'ftse_price_lag'
+                                    )
+ets_EU_DE_with_lag<- merge(x=ets_EU_only_lag, y=DE_lag, by=c('Date', 'AuctionType'), all.x=TRUE)
+
+
+for(name in lagColnamesVec){
+  x=paste0(name,".x")
+  y=paste0(name,".y")
+  ets_EU_DE_with_lag[,x]<-ifelse(is.na(ets_EU_DE_with_lag[,x]), 
+                                  ets_EU_DE_with_lag[,y],
+                                  ets_EU_DE_with_lag[,x])
+}
+
+
+ets_EU_DE_with_lag<- ets_EU_DE_with_lag |> rename(
+                                    'Auction_Price_lag'= 'Auction_Price_lag.x',
+                                    'Max_bid_lag'= 'Max_bid_lag.x',
+                                    'Avg_num_bids_per_bidder_lag'='Avg_num_bids_per_bidder_lag.x',
+                                    'Avg_vol_per_bidder_lag'='Avg_vol_per_bidder_lag.x',
+                                    'Auction_vol_lag'= 'Auction_vol_lag.x',
+                                    'oil_price_lag'= 'oil_price_lag.x',
+                                    'ftse_price_lag'='ftse_price_lag.x'
+                                    ) |> select(-c('Auction_Price_lag.y',
+                                    'Max_bid_lag.y',
+                                    'Avg_num_bids_per_bidder_lag.y',
+                                    'Avg_vol_per_bidder_lag.y',
+                                    'Auction_vol_lag.y',
+                                    'oil_price_lag.y',
+                                    'ftse_price_lag.y'))
+
+#PL lag:
+PL_lag<- PL_only_with_lag |> select('Date',
+                                    'AuctionType', 
+                                    'Auction_Price_lag',
+                                    'Max_bid_lag',
+                                    'Avg_num_bids_per_bidder_lag',
+                                    'Avg_vol_per_bidder_lag',
+                                    'Auction_vol_lag',
+                                    'oil_price_lag',
+                                    'ftse_price_lag'
+                                    )
+ets_EU_DE_PL_with_lag<- merge(x=ets_EU_DE_with_lag, 
+                              y= PL_lag, by = c('Date', 'AuctionType'),
+                              all.x=TRUE)
+
+for(name in lagColnamesVec){
+  x=paste0(name,".x")
+  y=paste0(name,".y")
+  ets_EU_DE_PL_with_lag[,x]<-ifelse(is.na(ets_EU_DE_PL_with_lag[,x]), 
+                                  ets_EU_DE_PL_with_lag[,y],
+                                  ets_EU_DE_PL_with_lag[,x])
+}
+
+ets_EU_DE_PL_with_lag<- ets_EU_DE_PL_with_lag |> rename(
+                                    'Auction_Price_lag'= 'Auction_Price_lag.x',
+                                    'Max_bid_lag'= 'Max_bid_lag.x',
+                                    'Avg_num_bids_per_bidder_lag'='Avg_num_bids_per_bidder_lag.x',
+                                    'Avg_vol_per_bidder_lag'='Avg_vol_per_bidder_lag.x',
+                                    'Auction_vol_lag'= 'Auction_vol_lag.x',
+                                    'oil_price_lag'= 'oil_price_lag.x',
+                                    'ftse_price_lag'='ftse_price_lag.x'
+                                    ) |> select(-c('Auction_Price_lag.y',
+                                    'Max_bid_lag.y',
+                                    'Avg_num_bids_per_bidder_lag.y',
+                                    'Avg_vol_per_bidder_lag.y',
+                                    'Auction_vol_lag.y',
+                                    'oil_price_lag.y',
+                                    'ftse_price_lag.y'))
+
+
+
+#Adding EUAA lag:
+
+EUAA_lag<- EUAA_only_with_lag |> select('Date',
+                                    'AuctionType', 
+                                    'Auction_Price_lag',
+                                    'Max_bid_lag',
+                                    'Avg_num_bids_per_bidder_lag',
+                                    'Avg_vol_per_bidder_lag',
+                                    'Auction_vol_lag',
+                                    'oil_price_lag',
+                                    'ftse_price_lag'
+                                    )
+
+ets_representative_lag<- merge(x=ets_EU_DE_PL_with_lag,
+                               y=EUAA_lag, by = c('Date', 'AuctionType'),
+                               all.x=TRUE)
+
+for(name in lagColnamesVec){
+  x=paste0(name,".x")
+  y=paste0(name,".y")
+  ets_representative_lag[,x]<-ifelse(is.na(ets_representative_lag[,x]), 
+                                  ets_representative_lag[,y],
+                                  ets_representative_lag[,x])
+}
+
+ets_representative_lag<- ets_representative_lag |> rename(
+                                    'Auction_Price_lag'= 'Auction_Price_lag.x',
+                                    'Max_bid_lag'= 'Max_bid_lag.x',
+                                    'Avg_num_bids_per_bidder_lag'='Avg_num_bids_per_bidder_lag.x',
+                                    'Avg_vol_per_bidder_lag'='Avg_vol_per_bidder_lag.x',
+                                    'Auction_vol_lag'= 'Auction_vol_lag.x',
+                                    'oil_price_lag'= 'oil_price_lag.x',
+                                    'ftse_price_lag'='ftse_price_lag.x'
+                                    ) |> select(-c('Auction_Price_lag.y',
+                                    'Max_bid_lag.y',
+                                    'Avg_num_bids_per_bidder_lag.y',
+                                    'Avg_vol_per_bidder_lag.y',
+                                    'Auction_vol_lag.y',
+                                    'oil_price_lag.y',
+                                    'ftse_price_lag.y'))
+
+#Preparing data for a first differences procedure:
+
+#Starting by transforming the variables:
+
+ets_first_diff<- ets_representative_lag |> rename(
+                  oil_price= `Europe Brent Spot Price FOB (Dollars per Barrel)`,
+                  ftse_price = Price
+)
+
+#Maintaining a version of the data to use for EDA:
+ets_modeling_data<- ets_first_diff
+
+#We also need to add overall lags for oil and ftse prices that make more sense in the final model:
+
+oil_price_lag_overall<- ets_modeling_data$oil_price[1:length(ets_modeling_data$oil_price)-1]
+oil_price_lag_overall<- c(0,oil_price_lag_overall)
+ets_modeling_data<- ets_modeling_data |> mutate(
+                oil_price_lag_overall= oil_price_lag_overall
+)
+
+ftse_price_lag_overall<- ets_modeling_data$ftse_price[1:length(ets_modeling_data$ftse_price)-1]
+ftse_price_lag_overall<- c(0,ftse_price_lag_overall)
+ets_modeling_data<- ets_modeling_data |> mutate(
+                ftse_price_lag_overall= ftse_price_lag_overall
+)
+
+ets_first_diff<-ets_first_diff |> mutate(
+                  Auction_Price_fd = `Auction Price €/tCO2`- Auction_Price_lag,
+                  Max_bid_fd = `Maximum Bid €/tCO2` - Max_bid_lag,
+                  Avg_bids_fd= `Average number of bids per bidder` - Avg_num_bids_per_bidder_lag,
+                  Avg_vol_fd= `Average volume bid per bidder`- Avg_vol_per_bidder_lag,
+                  Auction_vol_fd = `Auction Volume tCO2`- Auction_vol_lag,
+                  oil_price_fd = oil_price - oil_price_lag,
+                  ftse_price_fd = ftse_price -ftse_price_lag
+) |> select (
+            Auction_Price_fd,
+            Max_bid_fd,
+            Avg_bids_fd,
+            Avg_vol_fd,
+            Auction_vol_fd,
+            oil_price_fd,
+            ftse_price_fd
+)
+```
+
+## Abstract
+
+The European Union's Cap and Trade policy's Emissions Trade System allows industrial placements, corporations and other eligible participants to auction off or purchase CO2 emissions allowances in the event of their having excess allowances or needing more allowances to avoid breaching their cap. This report endeavors to look at variables dictating the auctions themselves and outside factors to predict the auction price. It also establishes, to some extent, that booming business and industry relate to premiums on continued emissions of CO2 equivalents as measured by auction price.
+
+## Introduction
+
+#### The EU Cap and Trade System
+
+The cap-and-trade regulation allows companies, factories and power plants a certain allowance of emissions under a total allowance for each year. One allowance equates to a ton of CO2 or equivalent amount of other greenhouse gas.  A large percent of this allowance is provided to the organizations in question, free of charge and this constitutes their respective caps. For example, the allowance the EU set for carbon emissions across the aviation industry in 2021 was 24.5 million, i.e., 24.5 million tons of CO2. 20.7 million was issued for free, and the amount that each entity received constituted its ‘cap’ on emissions. The remaining 3.8 million allowances were auctioned.  Heavy fines are levied by the EU on any entity that breaches its cap - in the order of a 100 Euros per ton of CO2 equivalent emitted above the cap. 
+
+It is important to note that these are CO2 equivalents and so emitting a gas with greater greenhouse effects than CO2 would be penalized by converting it to equivalent tons of CO2 and punishing the breach accordingly. 
+
+The auctions are structured as follows: The bids are sorted in descending order of price. The bid volumes are added up going down that list and the price at which the total volume bid for crosses the total available volume of tons of CO2 emissions allowed is the clearing price(the Auction Price. )
+
+#### Why predict Auction Price?
+
+Auction price here is both reflective of the value of CO2 emissions - an especially apt concept to look at considering society's continuing struggles to fight and in some cases even accept, climate change - and the quirks of energy markets and their continued success and usefullness even in the face of opinions of naysayers who in the name of economic growth at all costs condemn themselves to a sort of Climate Luddite-ism. 
+
+
+## Data - Sources and Initial Analysis:
+
+The EU Emissions Trading System data I've used here comes from the website of the EEX (European Energy Exchange), the exchange licensed to run these auctions. The data goes back to 2017.
+
+A quick examination of the EU ETS(EU Emissions Trading System) data reveals that some metrics are naturally more appropriate to use in an analysis of this nature, especially considering the aims of this analysis are twofold:
+
+-   To identify, from a strategic standpoint, at least as far as participants in the auction are concerned, what predicts auction price well: Clearly, in this scenario, averages work better than net results, especially given total numbers are typically restricted by eligibility of participants and changing policy measures.
+    -   Further, averages might more readily reflect behavior individual parties in the auction might adapt. For example, if having a larger volume per bid seems to lower price, it would be in the interest of parties to bid in higher volumes although there would naturally be a point when total cost and per unit cost would need to be balanced.
+    -   Variables such as average bid per bidder and average volume per bidder are also interesting because it could be reasonably argued that they are representative of the level of demand for the CO2 allowances being auctioned. Similarly Auction Volume isn't just representative of supply - it is the supply. These two components are important, from a basic economic theory standpoint in predicting price, even auction price here.
+    -   One of the variables I'm especially interested in is the Maximum bid price. This is a really interesting variable because it seems that bidding really high is a viable method to win the auction as the auction clearing price is always resolved beneath the highest bid and the structure of the auction(see introduction above) would guarantee the highest bidder the allowances they seek.
+-   The other goal of this analysis is to see how economic performance for corporations affects CO2 allowance prices and whether this is at all reflective of incentives to reduce emissions. What is the premium placed by corporations on polluting?
+
+To address the second goal of this analysis, data for the European Price of Brent Crude Oil in dollars per barrel was added, both as a measure of the prevailing price environment but also as an economic measure of costs for the installations and corporations covered by the Cap and Trade Regulation.
+
+The value of the FTSE 100 index was added as further predictor(while Brexit went from looming spectre to finally completed to barely even acknowledged now over the time frame examined in this analysis, the LSE has mostly remained the largest European Stock Exchange and the FTSE probably the best reflection of business performance across the pond).
+
+We can see from the figure below that FTSE and especially Oil Prices move really well with CO2 allowance Auction Prices and might therefore serve as good determinants of that price. They should also help inform how other auction variables such as volume and average bid size affect auction price controlling for macroeconomic effects
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+suppressWarnings(
+  ggplot(data=ets_modeling_data, aes(x=Date))+ geom_line(aes(y=oil_prices, color = 'Oil Prices'))+ geom_line(aes(y=`Auction Price €/tCO2`, color = 'Auction Prices' ))+geom_line(aes(y=ftse_price/100, color ='FTSE/100' ))+
+          ggtitle("Graph 1: Auction Price, FTSE and Oil Price against Time")+
+          xlab("Date")+ylab('Price/Index Value')+
+    scale_color_manual(name = "Variables",values = c('#581845','#FFC300','#E13F35'))
+  )
+            
+```
+
+To further narrow down which variables we might use, correlation matrices were created and highly correlated predictors were eliminated. Similarly, we want variables that are at least a little well correlated with the outcome variable (Auction Price). Eliminating the variables that are highly correlated or which might not be meaningful predictors at least as far as interpretation is concerned, we get:
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+eu_cor_frame<- ets_modeling_data |> select(`Auction Price €/tCO2`,`Auction Volume tCO2`, `Maximum Bid €/tCO2`,`Average number of bids per bidder`,
+                                    oil_price, ftse_price) 
+
+eu_cor_frame<- na.omit(eu_cor_frame)
+cor_matrix<- cor(eu_cor_frame)
+
+cor_matrix
+
+```
+
+We can see that between these four predictors of Auction price, we have pretty strong correlations. The correlations between predictors is a little bit stronger than we would like it to be but not enough to be problematic for our regression. Unfortunately, with economic data like this, its not going to be possible to find data with significantly lower correlations, especially with such measures as oil price and ftse price included. Nevertheless we shall explore below whether leaving those factors out gives us a better or worse model.
+
+Another consideration before we move on: The scale of the data above varies. We already had to transform the price of the FTSE 100 index in the graph above by dividing it by 100 to display it on the same scale as crude oil prices and CO2 allowance auction prices. Auction Volume is in the millions, average volume per bidder is in the hundreds of thousands while number of bids per bidder is in single digits. So we log those variables that are on a much larger scale.
+
+### The Time Series Dimension
+
+Graph 1 above might have given you pause and made you think "Hold on, doesn't this look awfully like time series data?". That's because it does, and it is and that poses a problem in as much as time series data, being autocorrelated violates the condition of independence of errors for simple linear regression and OLS estimates. We can see the time series structure of the data in the graphs below and will discuss how to handle that.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+ets_modeling_data<- na.omit(ets_modeling_data)
+pacf(ets_modeling_data$`Auction Price €/tCO2`,lag=10, pl=TRUE, main="Graph 2 :
+     Partial Autocorrelation for Auction Price €/tCO2")
+
+pacf(ets_modeling_data$oil_price,lag=10, pl=TRUE, main="Graph 3 :
+     Partial Autocorrelation for Price of Brent Crude Spot Price $/barrel")
+
+pacf(ets_modeling_data$ftse_price,lag=10, pl=TRUE, main="Graph 4 :
+     Partial Autocorrelation for FTSE-100")
+
+```
+
+All these variables have an AR(1) structure which is relatively typical of a lot of economic data. In order to model these appropriately, I added lag columns for our variables in the data(the code for this is in the appendix) and a first differences approach in the models below should help bring the Durbin Watson Statistic to acceptable levels. I will point these out as we go in the discussion of the models.
+
+A first differences procedure is being used here because the literature I read indicates that for economic data the $\rho$ for AR(1) structures is generally high and First differences procedure is appropriate.(Penn State Applied Regression Analysis 10.3 - Regression with Autoregressive Errors: https://online.stat.psu.edu/stat462/node/189/).
+
+#### A little aside
+
+Some of the auction data such as auction volume and number of bids per bidder have autoregression structures that are not as straightforward.
+
+```{r}
+#| echo: false
+#| message: false
+pacf(ets_modeling_data$`Average number of bids per bidder`, lag=10, pl=TRUE, main= "Graph 5:
+     Partial Autocorrelation in \naverage number of bids per bidder")
+pacf(ets_modeling_data$`Auction Volume tCO2`, lag = 10, pl = TRUE, main = "Graph 6: 
+     Partial Autocorrelation in \nAverage volume in tons of CO2")
+```
+
+However, introducing a lag brings the level of the partial autocorrelation down to levels which are much more acceptable for this model, as we can glean from the graphs below.
+
+Strictly speaking, we still have autocorrelation in multiple points above the level of significance and more advanced methods would need to be used to deal with this and would certainly contribute to a better performance of the models presented later in this paper.Unfortunately, that is beyond the scope of this project and is something to be left for future work.
+
+```{r}
+#| echo: false
+#| message: false
+pacf(ets_modeling_data$`Average number of bids per bidder`- ets_modeling_data$Avg_num_bids_per_bidder_lag,
+               lag=10, pl=TRUE, main= "Graph 7:
+     Partial Autocorrelation in \nlag adjusted average number of bids per bidder")
+pacf(ets_modeling_data$`Auction Volume tCO2`- ets_modeling_data$Auction_vol_lag,
+lag = 10, pl = TRUE, main = "Graph 8: 
+     Partial Autocorrelation in \nlag adjusted Average volume in tons of CO2")
+```
+
+## Modeling Auction Price
+
+In this section we examine a number of models of auction price. We'll start with simple linear models, one with just the auction predictors and one that also includes oil and ftse prices. Then we will evaluate a 'no pooling' model that splits the data into groupings based on auction type: EU, DE (Germany), PL(Poland) and EUAA(Aviation Allowances). This will be followed by mixed effects models - varying intercept and then varying both intercepts and slopes. This section will also address the interpretations of the coefficients of each model.
+
+We are going to evaluate the performance of these models in the next section of this paper by using the coefficients to predict Auction prices. Therefore we will divide the dataset so we get an 80-20 split for training-prediction. The following models are trained on that initial 80% which goes up to July 8th 2022. All the auctions following that date will constitute our prediction dataset.
+
+We evaluate two models at each step: The first including auction variables and oil and FTSE prices. The second including only Max bid price, oil and FTSE as the time series components of these are easier to handle
+
+### A simple linear regression:
+
+The first model we run will be a simple linear regression. However, just to demonstrate the handling of time-series here we are going to run one regression without adjusting our variables by their lags and display the Durbin Watson statistic for that to demonstrate just how untenable a basic model is. Then we will adjust the variables using the first differences procedure.
+
+```{r}
+#| echo: false
+#| message: false
+
+#Filtering data to get the training set:
+
+ets_training_data<- ets_modeling_data |> filter(Date<= '2022-07-08')
+ets_test_data<- ets_modeling_data |> filter(Date > '2022-07-08')
+```
+
+#### Linear regression without lag adjustment:
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+ets_training_data$ftse_price<- ets_training_data$ftse_price/100
+ets_training_data$ftse_price_lag_overall<- ets_training_data$ftse_price_lag_overall/100
+ets_training_data$ftse_price_lag<- ets_training_data$ftse_price_lag/100
+fit_no_lag<- lm(`Auction Price €/tCO2` ~ `Maximum Bid €/tCO2`+
+                                          `Average number of bids per bidder`+
+                                          log(`Auction Volume tCO2`)+
+                                            oil_price+ ftse_price, 
+                 family=gaussian, data=ets_training_data)
+
+summary(fit_no_lag)
+durbinWatsonTest(fit_no_lag)
+```
+
+We see the results of a simple linear regression. The coefficients for all but FTSE price are significant and can be interpreted pretty easily. For a difference in Maximum bid price of 1 euro the auction price is higher by 0.87 euros. Since ftse price is transformed by dividing by a hundred, we can interpret that coefficient by saying for a hundred point difference in FTSE the auction price of CO2 allowances is 0.03 euros higher. For the log auction volume variable: For a difference in auction volume of 1%, the Auction price for CO2 allowances per ton is 0.0129 euros lower.
+
+However, the Durbin Watson statistic is 1.275 and we see significant autocorrelation. It's easier to see what this means for the model by examining the residual plot:
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+res<- resid(fit_no_lag)
+plot(fitted(fit_no_lag), res)
+```
+
+It's very easy to see that this residual structure is not acceptable at all - that's because autocorrelation violates a fundamental assumption of linear models - that of independence of errors.
+
+The next model, where we transform the variables using their respective lags will avoid this issue.
+
+#### Lag Adjusted linear model (Complete pooling):
+
+Here we transform our model variables by subtracting their respective lags from their values(Note for auction volume we cannot take the log since the lag adjusted values are sometimes negative so I'm scaling here by dividing by 100,000) :
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+ets_complete_pooling_first_diff<- ets_training_data |> mutate(
+                  Auction_Price_fd = `Auction Price €/tCO2`- Auction_Price_lag,
+                  Max_bid_fd = `Maximum Bid €/tCO2` - Max_bid_lag,
+                  Avg_bids_fd= `Average number of bids per bidder` - Avg_num_bids_per_bidder_lag,
+                  Avg_vol_fd= `Average volume bid per bidder`- Avg_vol_per_bidder_lag,
+                  Auction_vol_fd = `Auction Volume tCO2`- Auction_vol_lag,
+                  oil_price_fd = oil_price - oil_price_lag_overall,
+                  ftse_price_fd = ftse_price -ftse_price_lag_overall
+) |> mutate(
+  Auction_vol_fd = Auction_vol_fd/100000
+)
+
+complete_pooling_fit_lag_adj<- glm(Auction_Price_fd ~ Max_bid_fd +
+                                          Avg_bids_fd+
+                                          Auction_vol_fd+
+                                            oil_price_fd+ ftse_price_fd, 
+                 family=gaussian, data=ets_complete_pooling_first_diff)
+
+durbinWatsonTest(complete_pooling_fit_lag_adj)
+
+```
+
+We can see that this model is much better. We have an almost acceptable Durbin Watson test statistic now(the exercise of refining this statistic even further is beyond the scope of this paper). Nevertheless we cannot reject the null hypothesis of the test that there is positive autocorrelation. Perhaps our other models will do better.
+
+What about the coefficients?
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+summary(complete_pooling_fit_lag_adj)
+
+res<- resid(complete_pooling_fit_lag_adj)
+plot(fitted(complete_pooling_fit_lag_adj),res)+abline(0,0)
+```
+
+Since the intercept is significant here, we need to adjust it so its consistent with our lags. We re-run the regression without an intercept, calculate the sample means for each of our variables and use the coefficients above, along with those means to calculate the intercept. I.e: $\alpha = \bar{y} - \hat{\beta}_{1}\bar{x}_{1} - \hat{\beta}_{2}\bar{x}_{2}$
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+complete_pooling_fit_lag_adj<- glm(Auction_Price_fd ~ 0+Max_bid_fd +
+                                          Avg_bids_fd+
+                                          Auction_vol_fd+
+                                            oil_price_fd+ ftse_price_fd, 
+                 family=gaussian, data=ets_complete_pooling_first_diff)
+
+summary(complete_pooling_fit_lag_adj)
+
+ets_complete_pooling_first_diff_a<- na.omit(ets_complete_pooling_first_diff)
+ets_complete_pooling_first_diff_a<-ets_complete_pooling_first_diff_a |> summarize(
+                    Auction_price_mean = mean(Auction_Price_fd),
+                    Max_bid_mean = mean(Max_bid_fd),
+                    Avg_bids_mean = mean(Avg_bids_fd),
+                    Auction_vol_mean = mean(Auction_vol_fd),
+                    oil_price_mean = mean(oil_price_fd),
+                    ftse_price_mean = mean(ftse_price_fd)
+)
+
+
+new_intercept <- ets_complete_pooling_first_diff_a$Auction_price_mean - 0.241194*ets_complete_pooling_first_diff_a$Max_bid_mean - 0.166298*ets_complete_pooling_first_diff_a$Avg_bids_mean +0.005693*ets_complete_pooling_first_diff_a$Auction_vol_mean - 0.011642*ets_complete_pooling_first_diff_a$oil_price_mean -0.048955*ets_complete_pooling_first_diff_a$ftse_price_mean
+
+print("Intercept:")
+new_intercept
+
+res<- resid(complete_pooling_fit_lag_adj)
+plot(fitted(complete_pooling_fit_lag_adj),res)+abline(0,0)
+```
+
+We can see that now, adjusting for lag, only the Maximum bid price is significant. The residuals look much better and seem to be indicative of independent error terms. However they are quite large which means this model might not be the best as far as performance goes. 
+
+The interpretation of these coefficients is as follows, using that of Max_bid_fd as an example:
+
+For a difference in the change in max bid relative to the last maximum bid price of 1 euro, the Auction price is 0.24 euros higher than the Auction price if there was no difference between current maximum bid price and the previous maximum bid price. 
+
+It is important to note that the outcome variable now is the first difference in auction price. 
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+complete_pooling_fit_lag_adj_auction_only<- glm(Auction_Price_fd ~ 0+Max_bid_fd +
+                        oil_price_fd + ftse_price_fd, 
+                 family=gaussian, data=ets_complete_pooling_first_diff)
+
+summary(complete_pooling_fit_lag_adj_auction_only)
+durbinWatsonTest(complete_pooling_fit_lag_adj_auction_only)
+
+new_intercept <- ets_complete_pooling_first_diff_a$Auction_price_mean - 0.2421319*ets_complete_pooling_first_diff_a$Max_bid_mean - 0.2022058*ets_complete_pooling_first_diff_a$Avg_bids_mean -0.0003581*ets_complete_pooling_first_diff_a$Auction_vol_mean
+
+print("Intercept:")
+new_intercept
+
+res<- resid(complete_pooling_fit_lag_adj_auction_only)
+plot(fitted(complete_pooling_fit_lag_adj_auction_only),res)+abline(0,0)
+```
+
+We can see that only max bid price is significant here. The models have very comparable AIC's (differing by a paltry 0.2) so its difficult to conclude which model may better serve us. Perhaps our predictions later shall help us sort that out.
+
+#### A note on the residuals here:
+
+The residuals are largely as they should be but we still see a *lot of outliers*.
+
+However I would be loathe to leave those out at this juncture simply because for the period of prediction (and for the forseeable future and even conceivably, one could argue for any substantive economic horizon with the volatility we see today) the 'events' that these outliers describe continue to occur if not with any level of frequency. All the same, *I think the influence of these points on our regression is something I would not want to leave out without significant further investigation*.
+
+Another potential cause of these outliers is that our data actually involves data from four distinct auctions covered under the EU ETS system: 
+-   EU Auctions 
+-   German Auctions
+-   Polish Auctions 
+-   Aviation Allowance Auctions.
+
+To deal with these groups in our data, a multi level modelling appraoch was warranted. We will first build no pooling versions of the models above, compare them and then move on to a partial pooling approach. All along the way, we followed the same first differences approach as shown above. In the cases where intercept was not significant we didn't need to follow the process of adjusting it as we did above.
+
+### No Pooling Models for each Auction Group
+
+#### Another quick aside: On lags
+
+Before we get stuck into the weeds with these, it's important to have a quick discussion about lags: For the following data, lag has to be recalculated and adjusted as we cannot just subset the lags from the entire dataset and have them line up correctly.
+
+#### Back to regularly scheduled programming:
+
+##### EU Auctions:
+
+We will start with the model for the EU Auctions. Again, we adjust our variables with their respective, correct lags.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+EU_only<- ets_training_data |> mutate(
+                  Auction_Price_fd = `Auction Price €/tCO2`- Auction_Price_lag,
+                  Max_bid_fd = `Maximum Bid €/tCO2` - Max_bid_lag,
+                  Avg_bids_fd= `Average number of bids per bidder` - Avg_num_bids_per_bidder_lag,
+                  Avg_vol_fd= `Average volume bid per bidder`- Avg_vol_per_bidder_lag,
+                  Auction_vol_fd = `Auction Volume tCO2`- Auction_vol_lag,
+                  oil_price_fd = oil_price - oil_price_lag,
+                  ftse_price_fd = ftse_price -ftse_price_lag
+) |> mutate(
+  Auction_vol_fd = Auction_vol_fd/100000
+) |> filter(AuctionType=="EU")
+
+EU_no_pool_fit<- glm(Auction_Price_fd ~ Max_bid_fd +Avg_bids_fd+
+                          Auction_vol_fd+ oil_price_fd +ftse_price_fd, 
+                 family=gaussian, data=EU_only)
+
+summary(EU_no_pool_fit)
+durbinWatsonTest(EU_no_pool_fit)
+
+
+```
+
+The intercept is not significant, so we don't need to adjust it here.
+
+###### The same model without Oil and FTSE:
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+EU_no_pool_fit_auction_only<- glm(Auction_Price_fd ~ Max_bid_fd +oil_price_fd + ftse_price_fd, 
+                 family=gaussian, data=EU_only)
+
+summary(EU_no_pool_fit_auction_only)
+durbinWatsonTest(EU_no_pool_fit_auction_only)
+```
+
+We can see that we have a better Durbin Watson statistic for both models here and we can reject the null hypothesis that there is autocorrelation. Clearly the First differences procedure does a good job dealing with the autocorrelation in these cases.
+
+The maximum bid is statistically significant and can be interpreted in the same way as in any other linear regression model. The FTSE index is also statistically significant. It's also worth noting that th AIC is much smaller than in our previous models. In fact its close to half the value of the AIC of the other models. We can conclude that we have a much better fit here than in the complete pooling. it's also worth noting that the AIC for the model with oil and FTSE included is noticeably better but perhaps not by a significant amount. Again, we shall look to predictions to help us out.
+
+Can we say that about all our no pooling models generally? No. We need to run through all of them.
+
+##### German Auctions(DE):
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+DE_only<- ets_training_data |> mutate(
+                  Auction_Price_fd = `Auction Price €/tCO2`- Auction_Price_lag,
+                  Max_bid_fd = `Maximum Bid €/tCO2` - Max_bid_lag,
+                  Avg_bids_fd= `Average number of bids per bidder` - Avg_num_bids_per_bidder_lag,
+                  Avg_vol_fd= `Average volume bid per bidder`- Avg_vol_per_bidder_lag,
+                  Auction_vol_fd = `Auction Volume tCO2`- Auction_vol_lag,
+                  oil_price_fd = oil_price - oil_price_lag,
+                  ftse_price_fd = ftse_price -ftse_price_lag
+) |> mutate(
+  Auction_vol_fd = Auction_vol_fd/100000
+) |> filter(AuctionType=="DE")
+
+DE_no_pool_fit<- glm(Auction_Price_fd ~ Max_bid_fd +Avg_bids_fd+
+                          Auction_vol_fd+ oil_price_fd +ftse_price_fd, 
+                 family=gaussian, data=DE_only)
+
+summary(DE_no_pool_fit)
+durbinWatsonTest(DE_no_pool_fit)
+
+
+```
+
+###### The same model with only Maximum Bid, Oil and FTSE:
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+DE_no_pool_fit_auction_only<- glm(Auction_Price_fd ~ Max_bid_fd +oil_price_fd + ftse_price_fd, 
+                 family=gaussian, data=DE_only)
+
+summary(DE_no_pool_fit_auction_only)
+durbinWatsonTest(DE_no_pool_fit_auction_only)
+
+```
+
+Our DW Test statistics aren't looking so good for these models although the AIC is much much better than for the previous models. This may also be because the sample size is much smaller for these auctions.
+
+##### Polish Auctions (PL):
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+PL_only<- ets_training_data |> mutate(
+                  Auction_Price_fd = `Auction Price €/tCO2`- Auction_Price_lag,
+                  Max_bid_fd = `Maximum Bid €/tCO2` - Max_bid_lag,
+                  Avg_bids_fd= `Average number of bids per bidder` - Avg_num_bids_per_bidder_lag,
+                  Avg_vol_fd= `Average volume bid per bidder`- Avg_vol_per_bidder_lag,
+                  Auction_vol_fd = `Auction Volume tCO2`- Auction_vol_lag,
+                  oil_price_fd = oil_price - oil_price_lag,
+                  ftse_price_fd = ftse_price -ftse_price_lag
+) |> mutate(
+  Auction_vol_fd = Auction_vol_fd/100000
+) |> filter(AuctionType=="PL")
+
+PL_no_pool_fit<- glm(Auction_Price_fd ~ Max_bid_fd +Avg_bids_fd+
+                          Auction_vol_fd+ oil_price_fd +ftse_price_fd, 
+                 family=gaussian, data=PL_only)
+
+summary(PL_no_pool_fit)
+durbinWatsonTest(PL_no_pool_fit)
+
+
+```
+
+###### The same model with only Max bid, Oil and FTSE:
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+PL_no_pool_fit_auction_only<- glm(Auction_Price_fd ~ Max_bid_fd +oil_price_fd + ftse_price_fd, 
+                 family=gaussian, data=PL_only)
+
+summary(PL_no_pool_fit_auction_only)
+durbinWatsonTest(PL_no_pool_fit_auction_only)
+
+```
+
+The DW statistics here have gone too far the other way, with us now not being able to reject the null hypothesis that there is no negative autocorrelation. While our lag adjusted First Differences procedure worked really well for the EU auctions, it seems to be less effective here, likely because more sophisticated techniques for dealing with the time series are required of these small subsets of our data. Nevertheless this is an important finding.
+
+##### EUAA Auctions:
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+EUAA_only<- ets_training_data |> mutate(
+                  Auction_Price_fd = `Auction Price €/tCO2`- Auction_Price_lag,
+                  Max_bid_fd = `Maximum Bid €/tCO2` - Max_bid_lag,
+                  Avg_bids_fd= `Average number of bids per bidder` - Avg_num_bids_per_bidder_lag,
+                  Avg_vol_fd= `Average volume bid per bidder`- Avg_vol_per_bidder_lag,
+                  Auction_vol_fd = `Auction Volume tCO2`- Auction_vol_lag,
+                  oil_price_fd = oil_price - oil_price_lag,
+                  ftse_price_fd = ftse_price -ftse_price_lag
+) |> mutate(
+  Auction_vol_fd = Auction_vol_fd/100000
+) |> filter(AuctionType=="EUAA")
+
+EUAA_no_pool_fit<- glm(Auction_Price_fd ~ Max_bid_fd +Avg_bids_fd+
+                          Auction_vol_fd+ oil_price_fd +ftse_price_fd, 
+                 family=gaussian, data=EUAA_only)
+
+summary(EUAA_no_pool_fit)
+durbinWatsonTest(EUAA_no_pool_fit)
+
+
+```
+
+###### The same model with only Max bid price, Oil and FTSE:
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+EUAA_no_pool_fit_auction_only<- glm(Auction_Price_fd ~ Max_bid_fd +oil_price_fd + ftse_price_fd, 
+                 family=gaussian, data=EUAA_only)
+
+summary(EUAA_no_pool_fit_auction_only)
+durbinWatsonTest(EUAA_no_pool_fit_auction_only)
+
+```
+
+These models too, suffer from the same issues as for Poland and Germany.
+
+Perhaps our two Partial Pooling models can do better.
+
+### Partial Pooling Models:
+
+First let's look at the partial pooling model varying only intercept for auction variables and oil and FTSE prices.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+library(performance)
+
+ets_modeling_data$AuctionType<- factor(ets_modeling_data$AuctionType)
+ets_partial_pooling_first_diff<-ets_modeling_data |> mutate(
+                  Auction_Price_fd = `Auction Price €/tCO2`- Auction_Price_lag,
+                  Max_bid_fd = `Maximum Bid €/tCO2` - Max_bid_lag,
+                  Avg_bids_fd= `Average number of bids per bidder` - Avg_num_bids_per_bidder_lag,
+                  Auction_vol_fd = `Auction Volume tCO2`- Auction_vol_lag,
+                  oil_price_fd = oil_price - oil_price_lag,
+                  ftse_price_fd = ftse_price -ftse_price_lag
+) |> mutate(Auction_vol_fd= Auction_vol_fd/100000)
+
+partial_pool_fit_intercept_only<- lmer(Auction_Price_fd ~ Max_bid_fd+Avg_bids_fd+
+                            Auction_vol_fd+oil_price_fd+ftse_price_fd+ (1|AuctionType),
+                            data=ets_partial_pooling_first_diff)
+
+summary(partial_pool_fit_intercept_only)
+coef(partial_pool_fit_intercept_only)
+
+
+```
+
+This model is really interesting. We can see that Max Bid price, Auction volume, oil price and FTSE price are all significant by examining the standard errors. Further, the Fixed effects are fascinating because we can see that Aviation Auctions have a much higher average price than the other types of CO2 allowance auctions and also that EU auctions are, on average lower priced than others. 
+
+What if we try and vary the slope of the significant variables in the above regression. We can see from the size of the random effects in the above regression that we're likely to get a warning that our random effects are very small :
+
+```{r}
+#| echo: false
+
+partial_pool_fit_slopes<- lmer(Auction_Price_fd ~ Max_bid_fd+Avg_bids_fd+
+                            Auction_vol_fd+oil_price_fd+ftse_price_fd+ (1+ Max_bid_fd + Auction_vol_fd +oil_price_fd +ftse_price_fd|AuctionType),
+                            data=ets_partial_pooling_first_diff)
+
+summary(partial_pool_fit_intercept_only)
+coef(partial_pool_fit_intercept_only)
+
+```
+
+We can see that this model yields the same results as for the model with only variable intercept.
+
+###### Max bid, Oil and FTSE only
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+partial_pool_fit_intercept_oil_ftse<- lmer(Auction_Price_fd ~ Max_bid_fd+oil_price_fd+ftse_price_fd+ (1|AuctionType),
+                            data=ets_partial_pooling_first_diff)
+
+summary(partial_pool_fit_intercept_oil_ftse)
+coef(partial_pool_fit_intercept_oil_ftse)
+
+```
+
+We don't see any significant improvement for losing a significant variable, so we can conclude that the prior model is better.
+
+### Takeaways from the Modeling Process and a brief discussion of Conclusions so far before we move to Prediction
+
+Before we jump into using our models to predict Auction prices, I think a brief discussion about the results we've had thus far is worthwhile.
+
+-   Max Bid price, oil and FTSE are consistently good predictors of Auction Price.
+
+-   However, our models are generally plagued by autocorrelation with the exception of the EU only auction model. This isn't all bad news because it tells us that, barring the use of more sophisticated time series analysis, a regression model can model only EU auctions well and not German, Polish or EUAA auctions or perhaps even the whole ETS system.
+
+-   The significance of Oil Prices is telling when related to the literature reviewed in preparation for this analysis. Bayer and Alkin
+(https://www.pnas.org/doi/10.1073/pnas.1918128117) found that the ETS system reduced CO2 emissions despite low prices. Now that prices are much, much higher and clearly driven both by Oil prices we can say(although not with definite certainty but with a certain level of confidence) that the emission reduction effect of the ETS system and the climate change combating priorities it espouses have found their way into the attitude of firms and installations. That is to say, the premium on continued emissions, driven by larger costs of energy production and use, has had a positive effect on the goals of this energy market and the authors' assertion that initially low prices for CO2 allowances in no way spelled doom for the ETS market or for the EU's climate goals appears to be borne out.
+
+-   We can also say, from the fact that we keep seeing FTSE as a consistent predictor of Auction Price that Dechezlepretre, Nachtigall and Venmans
+(https://www.sciencedirect.com/science/article/pii/S0095069622001115) 
+contention that despite what critics of the EU's cap and Trade system had to say about the detrimental economic effect of the ETS system, it would actually benefit firms, installations and even the economy is also accurate.
+
+### Predictions
+
+We will not be using all of our models to make predictions. The autocorrelation figures for the no pooling models were especially egregious. So we will make predictions using the complete pooling model(which included oil and FTSE) and the partial pooling model. We will also use the stand-alone EU only auctions model to predict EU auction prices.
+
+A quick note on the methodology for this: We will use the predict function and the test data we had set aside(data after July 8 2022) to get predicted values. However since these are 'first difference' values, we need to add the lagged auction prices to get the actual predicted auction price values. This is compared with the actual values and a mean squared error is calculated. How do we compare this with the null model? A good indicator would be to just use the lagged data as a prediction. This will be our null model. 
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+Auction_Price_lag<- ets_test_data$`Auction Price €/tCO2`[1:length(ets_test_data$`Auction Price €/tCO2`)-1]
+
+Auction_Price_lag<- c(ets_training_data$`Auction Price €/tCO2`[length(ets_training_data$`Auction Price €/tCO2`)],Auction_Price_lag)
+
+mse_data_frame<- data.frame(ets_test_data$`Auction Price €/tCO2`, Auction_Price_lag)
+mse_null<- mean((mse_data_frame$ets_test_data..Auction.Price...tCO2. - mse_data_frame$Auction_Price_lag)^2)
+
+mse_null
+
+```
+
+
+Let's start with the complete pooling model:
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+ets_predictions_data<- ets_test_data|> mutate(
+                  Auction_Price_fd = `Auction Price €/tCO2`- Auction_Price_lag,
+                  Max_bid_fd = `Maximum Bid €/tCO2` - Max_bid_lag,
+                  Avg_bids_fd= `Average number of bids per bidder` - Avg_num_bids_per_bidder_lag,
+                  Auction_vol_fd = `Auction Volume tCO2`- Auction_vol_lag,
+                  oil_price_fd = oil_price - oil_price_lag_overall,
+                  ftse_price_fd = ftse_price -ftse_price_lag_overall
+) |> mutate(
+  Auction_vol_fd = Auction_vol_fd/100000
+) |> select(Auction_Price_fd, Max_bid_fd,Avg_bids_fd, Auction_vol_fd, oil_price_fd, ftse_price_fd)
+
+predictions_complete_pooling<- predict(complete_pooling_fit_lag_adj,ets_predictions_data )
+
+
+mse_data_frame<- data.frame(ets_test_data$Auction_Price,predictions_complete_pooling+Auction_Price_lag)
+
+
+mse_complete_pooling_pred<- mean((mse_data_frame$ets_test_data.Auction_Price- mse_data_frame$predictions_complete_pooling...Auction_Price_lag)^2)
+
+mse_complete_pooling_pred
+mean_auction_price_test<- mean(ets_test_data$`Auction Price €/tCO2`)
+```
+
+Okay, so we have our mean squared error for the complete pooling model. A mean squared error of 31 is pretty atrocious relative to the 4 that we got for the null model.  
+
+Let's try the other models:
+
+###### The EU only auction model:
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+ets_EU<- ets_test_data |> filter(AuctionType=="EU")
+ets_EU_predictions<- ets_test_data|> mutate(
+                  Auction_Price_fd = `Auction Price €/tCO2`- Auction_Price_lag,
+                  Max_bid_fd = `Maximum Bid €/tCO2` - Max_bid_lag,
+                  Avg_bids_fd= `Average number of bids per bidder` - Avg_num_bids_per_bidder_lag,
+                  Auction_vol_fd = `Auction Volume tCO2`- Auction_vol_lag,
+                  oil_price_fd = oil_price - oil_price_lag_overall,
+                  ftse_price_fd = ftse_price -ftse_price_lag_overall
+) |> mutate(
+  Auction_vol_fd = Auction_vol_fd/100000
+) |> filter(AuctionType=="EU") |> select(Auction_Price_fd, Max_bid_fd,Avg_bids_fd, Auction_vol_fd, oil_price_fd, ftse_price_fd)
+
+Auction_Price_lag_EU<- ets_EU$`Auction Price €/tCO2`[1:length(ets_EU$`Auction Price €/tCO2`)-1]
+
+Auction_Price_lag_EU<- c(ets_training_data$`Auction Price €/tCO2`[length(ets_training_data$`Auction Price €/tCO2`)],Auction_Price_lag_EU)
+
+predictions_EU_no_pooling<- predict(EU_no_pool_fit,ets_EU_predictions)
+
+mse_EU_no_pooling<- mean((predictions_EU_no_pooling+Auction_Price_lag_EU -ets_EU$`Auction Price €/tCO2`)^2)
+mse_EU_no_pooling
+
+```
+So that model also does not do very well in predicting our CO2 auction prices. We will try our partial pooling model too now, though I do not hold high hopes. 
+
+###### Partial Pooling model
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+ets_predictions_data<- ets_test_data|> mutate(
+                  Auction_Price_fd = `Auction Price €/tCO2`- Auction_Price_lag,
+                  Max_bid_fd = `Maximum Bid €/tCO2` - Max_bid_lag,
+                  Avg_bids_fd= `Average number of bids per bidder` - Avg_num_bids_per_bidder_lag,
+                  Auction_vol_fd = `Auction Volume tCO2`- Auction_vol_lag,
+                  oil_price_fd = oil_price - oil_price_lag_overall,
+                  ftse_price_fd = ftse_price -ftse_price_lag_overall
+) |> mutate(
+  Auction_vol_fd = Auction_vol_fd/100000
+) |> select(AuctionType,Auction_Price_fd, Max_bid_fd,Avg_bids_fd, Auction_vol_fd, oil_price_fd, ftse_price_fd)
+
+predictions_partial_pooling<- predict(partial_pool_fit_intercept_only,ets_predictions_data )
+
+mse_EU_no_pooling<- mean((predictions_partial_pooling+Auction_Price_lag_EU -ets_test_data$`Auction Price €/tCO2`)^2)
+
+mse_EU_no_pooling
+```
+
+This one performs the worst of the lot. 
+
+### Conclusions from Predictions
+
+All the models we looked at seemed to perform significantly worse than the null model which is to just look at the price from the last auction. This is frequently an issue with AR(1) data - you're much more likely to predict todays closing price by guessing yesterdays than by making a model - especially the sort of model used here which was hamstrung by my limited knowledge of Time Series Analysis at the time of writing. 
+
+It's not all glum news however. The significance of Oil Prices, FTSE and Max Bids across a variety of models can give us valuable information: 
+
+-   Firstly, since the maximum bid is a good indicator of Auction Price (barring lag of course), we can surmise something about how to optimize behavior to win a CO2 allowance auction: Knowing the price of the last auction, firms can decide the premium they want to pay to guarantee they clear the auction as every dollar over the last maximum auction price will raise the auction price by 0.23 euros (as indicated by our best predicting model). This is information the null model doesn't give. We can work backwards from the same and say that high maximum bid prices are generally indicative of a wish on that buyers part to guarantee an auction win and we can quantify that value using that model. While our model isn't as good at predicting, it can do a reasonable job of answering the second goal of this analysis because we can use it to determine just what value firms place on continuing to pollute given the assumption that those trying to guarantee an auction win are likely to be looking to exceed their allocated allowances. 
+
+-   Second, we can see that oil and stock indices can be good indicators of movement in Auction prices over the long term and can in fact drive some of that movement. 
+
+### Closing Remarks and Future Work:
+
+To summarize:
+
+This project set out to identify strategies for participants in EU ETS auctions. This was met in part in that we can safely say that we can use our first complete pooling model to show the relative clearing prices of an auction given particular maximum bid prices. The error for this is in the order of 5 to 6 euros per ton of CO2 which isn't fantastic but isn't particularly terrible either especially in cases where the alternative might mean paying a 100 euro fine per ton of CO2. 
+
+This project also aimed to see if we could quantify the premium placed by polluting corporations and fixtures on continued emissions and certainly that can be modeled using maximum bid prices in relation to oil and market prices. Again, the error rate and precision of the prediction is perhaps a little wanting but that can be rectified with *further time series analysis which would be lovely to undertake as a future companion to this piece.*
+
+We can also say that the authors of the two papers that I referred to as constituting the primary literature review for this paper were quite prescient in their predictions. Namely that 1) As Bayer and Alkin predicted the EU ETS market's initial low prices did not spell doom for it and in addition to a continuing decline in emissions, prices are at a healthy rate driven by a spike in oil prices and in economic performance. 2) Dechezlepretre and Venmans predictions that the EU ETS would not negatively impact economic performance were also quite right in as much as economic performance seems to also be a statistically significant driver of the prices in this energy market which would not have been the case had the naysayers been true. This finding - that growth would spur the ETS market was explicitly suggested by the authors of that paper. 
+
+So for future work, I would like to refine this work by improving the time series analysis component, although I hope the hierarchical modeling and general statistical modeling nous displayed here stands up. Further It would be nice to add CO2 emissions as a predictor( although I would need to account for the cyclical nature of those both over a year and over a week).
+
+
+### Cited Literature:
+-     The joint impact of the European Union emissions trading system on carbon emissions and economic performance, Dechezlepretre, Nachtigall and Venmans
+-     The European Union Emissions Trading System reduced CO2 emissions despite low prices, Bayer and Alkin
+
+For time series:
+
+-   https://online.stat.psu.edu/stat462/node/189/
+-   https://www.econometrics-with-r.org/14.3-autoregressions.html
