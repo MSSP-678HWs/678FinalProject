@@ -526,11 +526,11 @@ ets_first_diff<-ets_first_diff |> mutate(
 )
 ```
 
-### Abstract
+## Abstract
 
 The European Union's Cap and Trade policy's Emissions Trade System allows industrial placements, corporations and other eligible participants to auction off or purchase CO2 emissions allowances in the event of their having excess allowances or needing more allowances to avoid breaching their cap. This report endeavors to look at variables dictating the auctions themselves and outside factors to predict the auction price. It also establishes, to some extent, that booming business and industry relate to premiums on continued emissions of CO2 equivalents as measured by auction price.
 
-### Introduction
+## Introduction
 
 #### The EU Cap and Trade System
 
@@ -545,7 +545,7 @@ The auctions are structured as follows: The bids are sorted in descending order 
 Auction price here is both reflective of the value of CO2 emissions - an especially apt concept to look at considering society's continuing struggles to fight and in some cases even accept, climate change - and the quirks of energy markets and their continued success and usefullness even in the face of opinions of naysayers who in the name of economic growth at all costs condemn themselves to a sort of Climate Luddite-ism. 
 
 
-### Data - Sources and Initial Analysis:
+## Data - Sources and Initial Analysis:
 
 The EU Emissions Trading System data I've used here comes from the website of the EEX (European Energy Exchange), the exchange licensed to run these auctions. The data goes back to 2017.
 
